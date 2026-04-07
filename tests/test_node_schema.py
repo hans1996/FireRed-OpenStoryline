@@ -28,6 +28,7 @@ _install_stub("colorlog")
 _install_stub("colorlog.handlers")
 _install_stub("proglog")
 _install_stub("proglog.ProgressBarLogger")
+_install_stub("emoji")
 
 _lc = _install_stub("langchain_core")
 _lc.tools = _install_stub("langchain_core.tools")
