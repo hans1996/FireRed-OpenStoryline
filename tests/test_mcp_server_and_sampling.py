@@ -459,7 +459,7 @@ class TestSamplingCallback(unittest.IsolatedAsyncioTestCase):
 # ──────────────────────────────────────────────
 # Sampling requester: MCPSampler
 # ──────────────────────────────────────────────
-class TestMCPSampler(unittest.TestCase):
+class TestMCPSampler(unittest.IsolatedAsyncioTestCase):
     """Test MCPSampler class."""
 
     def _import(self):
