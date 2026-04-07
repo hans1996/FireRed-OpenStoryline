@@ -144,11 +144,19 @@ class GenerateScriptNode(BaseNode):
             "title": script_title,
         }
 
+# Default duration in seconds for image clips when duration metadata is unavailable.
+# This provides a reasonable estimate for script budgeting when a clip is an image
+# rather than video media.
+DEFAULT_IMAGE_DURATION_SEC = 2.0
+
+
 def _build_duration_lookup(clip_info: list[dict[str, Any]]) -> dict[str, float]:
     """
     clip_id -> duration_sec
+
+    When a clip's source_ref has no duration (common for images), falls back
+    to DEFAULT_IMAGE_DURATION_SEC.
     """
-    default_duration = 2.0 # HACK: default image second for estimate group durations
     out: dict[str, float] = {}
     for item in clip_info or []:
         cid = item.get("clip_id")
@@ -157,7 +165,7 @@ def _build_duration_lookup(clip_info: list[dict[str, Any]]) -> dict[str, float]:
         src = item.get("source_ref") or {}
         dur = src.get("duration", 0) / 1000.0
         if dur == 0.0:
-            dur = default_duration
+            dur = DEFAULT_IMAGE_DURATION_SEC
         out[cid] = dur
     return out
 
