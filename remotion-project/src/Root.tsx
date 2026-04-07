@@ -5,34 +5,34 @@ import type { NewsItem, NewsReportProps } from './NewsReport';
 
 const items: NewsItem[] = [
   {
-    title: 'OpenAI GPT-4.1 強化長上下文能力',
-    subtitle: 'OpenAI 發布 GPT-4.1 系列模型，支援百萬 token 窗口與更精細的工具使用能力',
+    title: 'Anthropic 推出 Mythos AI 模型',
+    subtitle: '新一代 AI 模型專注網路安全，首發預覽版展示威脅偵測能力',
     bgGradient: ['#0a193c', '#142850', '#1a3a6e'],
   },
   {
-    title: 'Google DeepMind 推出 Gemini 2.5',
-    subtitle: '多模態能力全面升級，影像、文字、程式碼推理能力顯著提升',
+    title: 'Broadcom 擴大 AI 晶片合作',
+    subtitle: 'Broadcom 與 Google 和 Anthropic 簽署擴展晶片協議，滿足飆升算力需求',
     bgGradient: ['#0a3328', '#145040', '#1a6e50'],
   },
   {
-    title: 'Anthropic 考慮 10 月 IPO',
-    subtitle: 'Claude 開發商 Anthropic 考慮最快 10 月上市，估值可能超過 1000 億美元',
-    bgGradient: ['#3c0a28', '#50143a', '#6e1a50'],
-  },
-  {
-    title: 'Claude Cowork 整合 Google 生態系',
-    subtitle: '連接 Google Drive、Gmail、DocuSign，企業 AI 工作流全面升級',
+    title: 'Salesforce 推出 Slackbot AI 代理',
+    subtitle: '全新 Slack AI 代理加入職場戰場，與微軟和 Google 正面競爭',
     bgGradient: ['#28144a', '#3a1a60', '#502080'],
   },
   {
-    title: 'AI 邏輯模型省能百倍突破',
-    subtitle: '邏輯驅動模型能耗降低 100 倍且在準確度領先',
-    bgGradient: ['#0a3328', '#14503a', '#1a6e4a'],
+    title: '量子電腦破解加密大幅提前',
+    subtitle: 'Google 將量子破解時間表提前至 2029 年，遠早於先前預測',
+    bgGradient: ['#3c0a28', '#50143a', '#6e1a50'],
   },
   {
-    title: 'AI Coding Agent 市場爆發',
-    subtitle: 'Claude Code 與 Cursor 用戶數翻倍，開發工具新時代來臨',
-    bgGradient: ['#3c0a19', '#501428', '#6e1a3c'],
+    title: 'Uber 採用 Amazon AI 晶片',
+    subtitle: '亞馬遜自研 AI 晶片持續擴張，Uber 成為最新加入科技巨頭',
+    bgGradient: ['#1a2a0a', '#2a4014', '#3a5a1e'],
+  },
+  {
+    title: 'Intel 加入 Musk Terafab 計畫',
+    subtitle: 'Intel 正式簽署 Elon Musk 的超級晶片廠 Terafab 合作計畫',
+    bgGradient: ['#0a2a3c', '#144050', '#1e5a6e'],
   },
 ];
 
