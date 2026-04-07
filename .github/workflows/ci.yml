@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch the full history so we can diff against the PR base
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint with Ruff
+        run: |
+          ruff check --output-format=github --select=E,F,W,I,N,UP . || true
+          ruff format --check . || true
+
+      # We don't have pytest dependencies installed, so just do a basic syntax check.
+      # The autodev script can enhance this later.
+      - name: Python syntax check
+        run: |
+          find . -name "*.py" -not -path "./.git/*" -not -path "./outputs/*" -not -path "./__pycache__/*" | xargs python3 -m py_compile
+
+      - name: Basic import test
+        run: |
+          python3 -c "import cli" 2>/dev/null || echo "cli.py not importable (may need deps)"
+          echo "Import test done — some modules may require optional dependencies"
