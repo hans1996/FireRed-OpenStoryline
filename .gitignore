@@ -12,6 +12,7 @@ __pycache__/
 venv/
 env/
 .env/
+test_venv/
 .conda/
 .hypothesis/
 
