@@ -15,7 +15,10 @@ import logging
 import shutil
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Set
+from typing import Annotated, Any, Dict, List, Optional, Tuple, Set
+
+from fastapi import Path as FastAPIPath, Query as FastAPIQuery, Doc, Body
+from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from starlette.websockets import WebSocketState, WebSocketDisconnect
 try:
@@ -908,6 +911,92 @@ class ResumableUpload:
     closed: bool = False
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
+
+# ---------------------------------------------------------------------------
+# Pydantic response models for API documentation
+# ---------------------------------------------------------------------------
+class SessionResponse(BaseModel):
+    """Response model for a single session."""
+    session_id: str
+    status: str
+    created_at: str
+    media_count: int
+    message_count: int
+
+
+class SessionListResponse(BaseModel):
+    """Response model for a list of sessions."""
+    sessions: List[Dict[str, Any]]
+
+
+class MediaUploadResponse(BaseModel):
+    """Response model for media upload operations."""
+    ok: bool = True
+    media_id: Optional[str] = None
+    filename: Optional[str] = None
+    kind: Optional[str] = None
+    upload_id: Optional[str] = None
+
+
+class MediaPendingResponse(BaseModel):
+    """Response model for listing pending media."""
+    pending_media: List[Dict[str, Any]]
+
+
+class MediaDeleteResponse(BaseModel):
+    """Response model for deleting pending media."""
+    ok: bool
+    pending_media: List[Dict[str, Any]]
+
+
+class ProviderUISchemaResponse(BaseModel):
+    """Response model for provider UI schema (TTS, AI transition, etc.)."""
+    providers: List[Dict[str, Any]]
+
+
+class ErrorResponse(BaseModel):
+    """Response model for error responses."""
+    detail: str
+
+
+class CancelResponse(BaseModel):
+    """Response model for cancel operations."""
+    ok: bool
+    message: str
+
+
+class ClearSessionResponse(BaseModel):
+    """Response model for clearing session chat history."""
+    ok: bool
+
+
+class InitUploadResponse(BaseModel):
+    """Response model for initializing resumable upload."""
+    ok: bool = True
+    upload_id: str
+    chunk_size: int
+    total_chunks: int
+
+
+class CompleteUploadResponse(BaseModel):
+    """Response model for completing resumable upload."""
+    ok: bool = True
+    media_id: str
+    filename: str
+
+
+class PreviewFileResponse(BaseModel):
+    """Response model for preview file URLs."""
+    url: str
+    path: str
+
+
+class InitUploadRequest(BaseModel):
+    """Request model for initializing a resumable upload."""
+    filename: str
+    size: int
+
+
 class MediaStore:
     """
     专注文件系统层：
@@ -1536,7 +1625,28 @@ async def lifespan(app: FastAPI) -> None:
     yield
 
 
-app = FastAPI(title="OpenStoryline Web", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="OpenStoryline Web",
+    description="OpenStoryline is an AI-powered video production multi-agent system. This API provides endpoints for session management, media upload/retrieval, metadata, and static file serving.",
+    version="1.0.0",
+    lifespan=lifespan,
+    terms_of_service="https://example.com/terms/",
+    contact={
+        "name": "OpenStoryline Support",
+        "url": "https://github.com/OpenStoryline",
+        "email": "support@openstoryline.example.com",
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    openapi_tags=[
+        {"name": "Static", "description": "Static file serving"},
+        {"name": "Meta", "description": "Metadata and provider schema endpoints"},
+        {"name": "Sessions", "description": "Session management"},
+        {"name": "Media", "description": "Media upload and retrieval"},
+    ],
+)
 
 app.add_middleware(
     HttpRateLimitMiddleware,
@@ -1730,14 +1840,42 @@ def _build_provider_ui_schema_from_config(config_path: str, section_name: str) -
 
     return {"providers": providers_out}
 
-@app.get("/")
+@app.get(
+    "/",
+    summary="Serve the main web UI",
+    description="Returns the main HTML interface for the OpenStoryline web application.",
+    tags=["Static"],
+    responses={
+        200: {"description": "HTML page returned successfully"},
+        404: {"description": "index.html not found", "model": ErrorResponse},
+    },
+)
 async def index() -> FileResponse | Response:
+    """Serve the main web UI (index.html).
+
+    Returns the primary HTML page for the OpenStoryline web application.
+    If the file is missing, returns a 404 plaintext error.
+    """
     if not os.path.exists(INDEX_HTML):
         return Response("index.html not found. Put it under ./web/index.html", media_type="text/plain", status_code=404)
     return FileResponse(INDEX_HTML, media_type="text/html")
 
-@app.get("/node-map")
+@app.get(
+    "/node-map",
+    summary="Serve the node map visualization",
+    description="Returns the node map visualization HTML page for viewing the workflow graph.",
+    tags=["Static"],
+    responses={
+        200: {"description": "Node map HTML page returned successfully"},
+        404: {"description": "node_map.html not found", "model": ErrorResponse},
+    },
+)
 async def node_map() -> FileResponse | Response:
+    """Serve the node map visualization page.
+
+    Returns the HTML page that displays the workflow node map visualization.
+    If the file is missing, returns a 404 plaintext error.
+    """
     if not os.path.exists(NODE_MAP_HTML):
         return Response(
             "node_map.html not found. Put it under ./web/node_map/node_map.html",
@@ -1746,35 +1884,110 @@ async def node_map() -> FileResponse | Response:
         )
     return FileResponse(NODE_MAP_HTML, media_type="text/html")
 
-@api.get("/meta/tts")
+@api.get(
+    "/meta/tts",
+    summary="Get TTS provider UI schema",
+    description="Returns the available TTS (text-to-speech) providers and their UI configuration fields from the project config.",
+    tags=["Meta"],
+    responses={
+        200: {"description": "TTS provider UI schema", "model": ProviderUISchemaResponse},
+    },
+)
 async def get_tts_ui_schema() -> JSONResponse:
+    """Get the TTS (text-to-speech) provider UI schema.
+
+    Returns available TTS providers and their configuration fields
+    as read from the project's config file.
+    """
     schema = _build_provider_ui_schema_from_config(default_config_path(), "generate_voiceover")
     return JSONResponse(schema)
 
-@api.get("/meta/ai_transition")
+@api.get(
+    "/meta/ai_transition",
+    summary="Get AI transition provider UI schema",
+    description="Returns the available AI transition providers and their UI configuration fields from the project config.",
+    tags=["Meta"],
+    responses={
+        200: {"description": "AI transition provider UI schema", "model": ProviderUISchemaResponse},
+    },
+)
 async def get_ai_transition_ui_schema() -> JSONResponse:
+    """Get AI transition provider UI schema.
+
+    Returns available AI transition providers and their configuration fields
+    as read from the project's config file.
+    """
     schema = _build_provider_ui_schema_from_config(default_config_path(), "generate_ai_transition")
     return JSONResponse(schema)
 
 # -------------------------
 # Sessions (REST)
 # -------------------------
-@api.post("/sessions")
+@api.post(
+    "/sessions",
+    summary="Create a new session",
+    description="Creates a new chat session and returns its details including session_id, status, and metadata.",
+    tags=["Sessions"],
+    responses={
+        200: {"description": "Session created successfully", "model": SessionResponse},
+    },
+)
 async def create_session() -> JSONResponse:
+    """Create a new chat session.
+
+    Initializes a fresh session with a unique session_id and returns
+    a snapshot of the session state including status and metadata.
+    """
     store: SessionStore = app.state.sessions
     sess = await store.create()
     return JSONResponse(sess.snapshot())
 
 
-@api.get("/sessions/{session_id}")
-async def get_session(session_id: str) -> JSONResponse:
+@api.get(
+    "/sessions/{session_id}",
+    summary="Get session details",
+    description="Retrieves the current state and metadata of a specific chat session.",
+    tags=["Sessions"],
+    responses={
+        200: {"description": "Session details retrieved", "model": SessionResponse},
+        404: {"description": "Session not found", "model": ErrorResponse},
+    },
+)
+async def get_session(session_id: Annotated[str, FastAPIPath(description="Unique session identifier")]) -> JSONResponse:
+    """Get details for a specific chat session.
+
+    Args:
+        session_id: Unique session identifier.
+
+    Returns a snapshot of the session state including history and metadata.
+    """
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
     return JSONResponse(sess.snapshot())
 
 
-@api.post("/sessions/{session_id}/clear")
-async def clear_session_chat(session_id: str) -> JSONResponse:
+@api.post(
+    "/sessions/{session_id}/clear",
+    summary="Clear session chat history",
+    description="Clears the chat history for a session, resetting messages to the initial system prompt.",
+    tags=["Sessions"],
+    responses={
+        200: {"description": "Session cleared successfully", "model": ClearSessionResponse},
+        404: {"description": "Session not found", "model": ErrorResponse},
+    },
+)
+async def clear_session_chat(session_id: Annotated[str, FastAPIPath(description="Unique session identifier")]) -> JSONResponse:
+    """Clear the chat history of a session.
+
+    Resets the conversation to the initial system messages, clears tool history,
+    and resets any AI transition cancellation flags.
+
+    Args:
+        session_id: Unique session identifier.
+
+    Note:
+        This does NOT delete uploaded media or media history for the session.
+    """
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
     async with sess.chat_lock:
@@ -1791,8 +2004,17 @@ async def clear_session_chat(session_id: str) -> JSONResponse:
         clear_ai_transition_cancelled(_ai_transition_cancel_cache_root(app.state.cfg), session_id)
     return JSONResponse({"ok": True})
 
-@api.post("/sessions/{session_id}/cancel")
-async def cancel_session_turn(session_id: str) -> JSONResponse:
+@api.post(
+    "/sessions/{session_id}/cancel",
+    summary="Cancel current LLM turn",
+    description="Interrupts the currently executing LLM response generation or tool call. Does NOT clear conversation history.",
+    tags=["Sessions"],
+    responses={
+        200: {"description": "LLM turn cancelled", "model": CancelResponse},
+        404: {"description": "Session not found", "model": ErrorResponse},
+    },
+)
+async def cancel_session_turn(session_id: Annotated[str, FastAPIPath(description="Unique session identifier")]) -> JSONResponse:
     """
     打断当前正在进行的 LLM turn（流式回复/工具调用）。
     - 不清空 history / lc_messages
@@ -1807,8 +2029,23 @@ async def cancel_session_turn(session_id: str) -> JSONResponse:
 # -------------------------
 # media (REST, session-scoped)
 # -------------------------
-@api.post("/sessions/{session_id}/media")
-async def upload_media(session_id: str, request: Request, files: List[UploadFile] = File(...)) -> JSONResponse:
+@api.post(
+    "/sessions/{session_id}/media",
+    summary="Upload media files",
+    description="Uploads one or more media files (images, videos, audio) to a session. Multiple files can be uploaded in a single request.",
+    tags=["Media"],
+    responses={
+        200: {"description": "Media uploaded successfully", "model": MediaUploadResponse},
+        400: {"description": "Invalid request or no files provided", "model": ErrorResponse},
+        404: {"description": "Session not found", "model": ErrorResponse},
+        429: {"description": "Rate limit or concurrency limit exceeded", "model": ErrorResponse},
+    },
+)
+async def upload_media(
+    session_id: Annotated[str, FastAPIPath(description="Unique session identifier")],
+    request: Request,
+    files: Annotated[List[UploadFile], File(description="Media files to upload")],
+) -> JSONResponse:
     if not isinstance(files, list) or not files:
         raise HTTPException(status_code=400, detail="no files")
 
@@ -1855,17 +2092,37 @@ async def upload_media(session_id: str, request: Request, files: List[UploadFile
         except Exception:
             pass
 
-@api.post("/sessions/{session_id}/media/init")
-async def init_resumable_media_upload(session_id: str, request: Request) -> JSONResponse:
-    try:
-        data = await request.json()
-        if not isinstance(data, dict):
-            data = {}
-    except Exception:
-        data = {}
+@api.post(
+    "/sessions/{session_id}/media/init",
+    summary="Initialize resumable upload",
+    description="Initializes a resumable media upload session. Returns an upload_id and chunk parameters for uploading large files in chunks.",
+    tags=["Media"],
+    responses={
+        200: {"description": "Upload initialized", "model": InitUploadResponse},
+        400: {"description": "Invalid file size", "model": ErrorResponse},
+        404: {"description": "Session not found", "model": ErrorResponse},
+        429: {"description": "Rate limit exceeded", "model": ErrorResponse},
+    },
+)
+async def init_resumable_media_upload(
+    session_id: Annotated[str, FastAPIPath(description="Unique session identifier")],
+    body: InitUploadRequest,
+    request: Request,
+) -> JSONResponse:
+    """Initialize a resumable media upload for large files.
 
-    filename = sanitize_filename((data.get("filename") or data.get("name") or "unnamed"))
-    size = int(data.get("size") or 0)
+    Creates an upload session and returns parameters (upload_id, chunk_size,
+    total_chunks) for uploading the file in manageable chunks.
+
+    Args:
+        session_id: Unique session identifier.
+        body: Request body containing filename and size in bytes.
+        request: HTTP request object (used for rate limiting).
+
+    Returns upload parameters for the client to use in subsequent chunk uploads.
+    """
+    filename = sanitize_filename(body.filename or "unnamed")
+    size = body.size
     if size <= 0:
         raise HTTPException(status_code=400, detail="invalid size")
 
@@ -1917,13 +2174,35 @@ async def init_resumable_media_upload(session_id: str, request: Request) -> JSON
     })
 
 
-@api.post("/sessions/{session_id}/media/{upload_id}/chunk")
+@api.post(
+    "/sessions/{session_id}/media/{upload_id}/chunk",
+    summary="Upload a chunk",
+    description="Uploads a single chunk for a resumable media upload. Chunks must be uploaded in order.",
+    tags=["Media"],
+    responses={
+        200: {"description": "Chunk uploaded successfully"},
+        400: {"description": "Invalid chunk index or mismatch", "model": ErrorResponse},
+        404: {"description": "Upload not found", "model": ErrorResponse},
+        429: {"description": "Concurrency limit exceeded", "model": ErrorResponse},
+    },
+)
 async def upload_resumable_media_chunk(
-    session_id: str,
-    upload_id: str,
-    index: int = Form(...),
-    chunk: UploadFile = File(...),
+    session_id: Annotated[str, FastAPIPath(description="Unique session identifier")],
+    upload_id: Annotated[str, FastAPIPath(description="Resumable upload session ID from init endpoint")],
+    index: Annotated[int, Form(description="Zero-based chunk index")],
+    chunk: Annotated[UploadFile, File(description="The chunk data bytes")],
 ) -> JSONResponse:
+    """Upload a single chunk of a resumable media upload.
+
+    The chunk is written to a temporary file at the correct offset.
+    All chunks must be uploaded before the complete endpoint can be called.
+
+    Args:
+        session_id: Unique session identifier.
+        upload_id: Upload session ID from the init endpoint.
+        index: Zero-based chunk index.
+        chunk: The binary chunk data.
+    """
     if UPLOAD_SEM.locked():
         raise HTTPException(status_code=429, detail="上传并发过高，请稍后重试")
     await UPLOAD_SEM.acquire()
@@ -1987,8 +2266,35 @@ async def upload_resumable_media_chunk(
             pass
 
 
-@api.post("/sessions/{session_id}/media/{upload_id}/complete")
-async def complete_resumable_media_upload(session_id: str, upload_id: str) -> JSONResponse:
+@api.post(
+    "/sessions/{session_id}/media/{upload_id}/complete",
+    summary="Complete resumable upload",
+    description="Finalizes a resumable upload after all chunks have been uploaded. Assembles chunks into the final media file.",
+    tags=["Media"],
+    responses={
+        200: {"description": "Upload completed", "model": CompleteUploadResponse},
+        400: {"description": "Missing chunks", "model": ErrorResponse},
+        404: {"description": "Upload not found", "model": ErrorResponse},
+        429: {"description": "Concurrency limit exceeded", "model": ErrorResponse},
+    },
+)
+async def complete_resumable_media_upload(
+    session_id: Annotated[str, FastAPIPath(description="Unique session identifier")],
+    upload_id: Annotated[str, FastAPIPath(description="Resumable upload session ID from init endpoint")],
+) -> JSONResponse:
+    """Complete a resumable media upload after all chunks are uploaded.
+
+    Verifies all chunks are present, assembles the file from the temporary
+    parts, and registers it as pending media in the session.
+
+    Args:
+        session_id: Unique session identifier.
+        upload_id: Upload session ID from the init endpoint.
+
+    Raises:
+        HTTPException 400: If some chunks are missing.
+        HTTPException 404: If upload session is not found or expired.
+    """
     if UPLOAD_SEM.locked():
         raise HTTPException(status_code=429, detail="上传并发过高，请稍后重试")
     await UPLOAD_SEM.acquire()
@@ -2038,8 +2344,31 @@ async def complete_resumable_media_upload(session_id: str, upload_id: str) -> JS
             pass
 
 
-@api.post("/sessions/{session_id}/media/{upload_id}/cancel")
-async def cancel_resumable_media_upload(session_id: str, upload_id: str) -> JSONResponse:
+@api.post(
+    "/sessions/{session_id}/media/{upload_id}/cancel",
+    summary="Cancel resumable upload",
+    description="Cancels an in-progress resumable upload and removes all temporary chunk files.",
+    tags=["Media"],
+    responses={
+        200: {"description": "Upload cancelled", "model": CancelResponse},
+        404: {"description": "Session not found", "model": ErrorResponse},
+    },
+)
+async def cancel_resumable_media_upload(
+    session_id: Annotated[str, FastAPIPath(description="Unique session identifier")],
+    upload_id: Annotated[str, FastAPIPath(description="Resumable upload session ID to cancel")],
+) -> JSONResponse:
+    """Cancel an in-progress resumable media upload.
+
+    Removes all temporary chunk files associated with the upload session.
+    If the upload_id is not found, returns a successful response (idempotent).
+
+    Args:
+        session_id: Unique session identifier.
+        upload_id: Resumable upload session ID to cancel.
+
+    Returns a success response regardless of whether the upload was found.
+    """
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
 
@@ -2059,23 +2388,56 @@ async def cancel_resumable_media_upload(session_id: str, upload_id: str) -> JSON
 
     return JSONResponse({"ok": True})
 
-@api.get("/sessions/{session_id}/media/pending")
-async def get_pending_media(session_id: str) -> JSONResponse:
+@api.get(
+    "/sessions/{session_id}/media/pending",
+    summary="List pending media",
+    description="Lists all media files that have been uploaded but not yet included in a message for this session.",
+    tags=["Media"],
+    responses={
+        200: {"description": "List of pending media", "model": MediaPendingResponse},
+        404: {"description": "Session not found", "model": ErrorResponse},
+    },
+)
+async def get_pending_media(session_id: Annotated[str, FastAPIPath(description="Unique session identifier")]) -> JSONResponse:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
     return JSONResponse({"pending_media": sess.public_pending_media()})
 
 
-@api.delete("/sessions/{session_id}/media/pending/{media_id}")
-async def delete_pending_media(session_id: str, media_id: str) -> JSONResponse:
+@api.delete(
+    "/sessions/{session_id}/media/pending/{media_id}",
+    summary="Delete pending media",
+    description="Removes a pending media file from the session that has not yet been included in a message.",
+    tags=["Media"],
+    responses={
+        200: {"description": "Media deleted", "model": MediaDeleteResponse},
+        404: {"description": "Session or media not found", "model": ErrorResponse},
+    },
+)
+async def delete_pending_media(
+    session_id: Annotated[str, FastAPIPath(description="Unique session identifier")],
+    media_id: Annotated[str, FastAPIPath(description="ID of the pending media to delete")],
+) -> JSONResponse:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
     await sess.delete_pending_media(media_id)
     return JSONResponse({"ok": True, "pending_media": sess.public_pending_media()})
 
 
-@api.get("/sessions/{session_id}/media/{media_id}/thumb")
-async def get_media_thumb(session_id: str, media_id: str) -> FileResponse | Response:
+@api.get(
+    "/sessions/{session_id}/media/{media_id}/thumb",
+    summary="Get media thumbnail",
+    description="Returns the thumbnail image for a media file. For videos without thumbnails, returns an SVG placeholder.",
+    tags=["Media"],
+    responses={
+        200: {"description": "Thumbnail image (JPEG or SVG)"},
+        404: {"description": "Media or session not found", "model": ErrorResponse},
+    },
+)
+async def get_media_thumb(
+    session_id: Annotated[str, FastAPIPath(description="Unique session identifier")],
+    media_id: Annotated[str, FastAPIPath(description="ID of the media to retrieve thumbnail for")],
+) -> FileResponse | Response:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
 
@@ -2098,8 +2460,21 @@ async def get_media_thumb(session_id: str, media_id: str) -> FileResponse | Resp
     raise HTTPException(status_code=404, detail="thumb not available")
 
 
-@api.get("/sessions/{session_id}/media/{media_id}/file")
-async def get_media_file(session_id: str, media_id: str) -> FileResponse:
+@api.get(
+    "/sessions/{session_id}/media/{media_id}/file",
+    summary="Get media file",
+    description="Downloads the full original media file. Only allows access to files within the configured media directory.",
+    tags=["Media"],
+    responses={
+        200: {"description": "Media file content"},
+        403: {"description": "Access forbidden (file outside media directory)", "model": ErrorResponse},
+        404: {"description": "Media or session not found", "model": ErrorResponse},
+    },
+)
+async def get_media_file(
+    session_id: Annotated[str, FastAPIPath(description="Unique session identifier")],
+    media_id: Annotated[str, FastAPIPath(description="ID of the media to download")],
+) -> FileResponse:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
 
@@ -2119,8 +2494,22 @@ async def get_media_file(session_id: str, media_id: str) -> FileResponse:
         filename=meta.name,
     )
 
-@api.get("/sessions/{session_id}/preview")
-async def preview_local_file(session_id: str, path: str) -> FileResponse:
+@api.get(
+    "/sessions/{session_id}/preview",
+    summary="Preview local file",
+    description="Safely serves a local file for preview, restricted to media_dir, outputs_dir, bgm_dir, and .server_cache directories.",
+    tags=["Media"],
+    responses={
+        200: {"description": "File preview content"},
+        400: {"description": "Invalid path", "model": ErrorResponse},
+        403: {"description": "File access forbidden", "model": ErrorResponse},
+        404: {"description": "File not found", "model": ErrorResponse},
+    },
+)
+async def preview_local_file(
+    session_id: Annotated[str, FastAPIPath(description="Unique session identifier")],
+    path: Annotated[str, FastAPIQuery(description="Local file path (absolute or relative to project root). Also supports file:// URIs.")],
+) -> FileResponse:
     """
     把 summary.preview_urls 里的“服务器本地路径”安全地转成可访问 URL。
     只允许访问：media_dir / outputs_dir / outputs_dir / bgm_dir / .server_cache 这些根目录下的文件。
@@ -2212,8 +2601,20 @@ async def mcp_sink_context(sink_func: Any) -> Any:
         reset_mcp_log_sink(token)
 
 
-@app.websocket("/ws/sessions/{session_id}/chat")
-async def ws_chat(ws: WebSocket, session_id: str) -> None:
+@app.websocket(
+    "/ws/sessions/{session_id}/chat",
+    name="ws_chat",
+)
+async def ws_chat(ws: WebSocket, session_id: Annotated[str, FastAPIPath(description="Unique session identifier")]) -> None:
+    """WebSocket endpoint for real-time chat with the AI agent.
+
+    Handles bidirectional streaming communication for sending user messages
+    and receiving streaming LLM responses, tool calls, and turn events.
+
+    Args:
+        ws: The WebSocket connection.
+        session_id: Unique session identifier for this chat session.
+    """
     client_ip = _client_ip_from_ws(ws, RATE_LIMIT_TRUST_PROXY_HEADERS)
 
     ok, retry_after, _ = await RATE_LIMITER.allow(
