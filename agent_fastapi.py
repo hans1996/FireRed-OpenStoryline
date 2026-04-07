@@ -73,7 +73,7 @@ USE_SESSION_SUBDIR = True
 
 CUSTOM_MODEL_KEY = "__custom__"
 
-def debug_traceback_print(cfg: Settings):
+def debug_traceback_print(cfg: Settings) -> None:
     if cfg.developer.developer_mode:
         traceback.print_exc()
 
@@ -510,7 +510,7 @@ class TokenBucketRateLimiter:
         *,
         max_buckets: int = 100000,
         evict_batch: int = 2000,
-    ):
+    ) -> None:
         self.ttl_sec = int(ttl_sec)
         self.cleanup_interval_sec = int(cleanup_interval_sec)
         self.max_buckets = int(max(1, max_buckets))
@@ -609,7 +609,7 @@ def _headers_to_dict(scope_headers: List[Tuple[bytes, bytes]]) -> Dict[str, str]
         d[dk] = dv
     return d
 
-def _client_ip_from_http_scope(scope: dict, trust_proxy_headers: bool) -> str:
+def _client_ip_from_http_scope(scope: Dict[str, Any], trust_proxy_headers: bool) -> str:
     headers = _headers_to_dict(scope.get("headers") or [])
     if trust_proxy_headers:
         xff = headers.get("x-forwarded-for")
@@ -742,7 +742,7 @@ def _global_http_rule_limit(rule_name: str) -> Optional[Tuple[int, int]]:
     return None
 
 
-def _get_content_length(scope: dict) -> Optional[int]:
+def _get_content_length(scope: Dict[str, Any]) -> Optional[int]:
     try:
         headers = _headers_to_dict(scope.get("headers") or [])
         v = headers.get("content-length")
@@ -791,12 +791,12 @@ class HttpRateLimitMiddleware:
     """
     ASGI middleware：对 HTTP 请求做限流（WebSocket 不在这里处理）。
     """
-    def __init__(self, app: Any, limiter: TokenBucketRateLimiter, trust_proxy_headers: bool = False):
+    def __init__(self, app: Any, limiter: TokenBucketRateLimiter, trust_proxy_headers: bool = False) -> None:
         self.app = app
         self.limiter = limiter
         self.trust_proxy_headers = bool(trust_proxy_headers)
 
-    async def __call__(self, scope: dict, receive: Any, send: Any):
+    async def __call__(self, scope: Dict[str, Any], receive: Any, send: Any) -> None:
         if scope.get("type") != "http":
             return await self.app(scope, receive, send)
 
@@ -860,7 +860,7 @@ class HttpRateLimitMiddleware:
         return await self.app(scope, receive, send)
 
 
-    async def _reject(self, send: Any, retry_after: float):
+    async def _reject(self, send: Any, retry_after: float) -> None:
         ra = int(math.ceil(float(retry_after or 0.0)))
         body = json.dumps(
             {"detail": "Too Many Requests", "retry_after": ra},
@@ -915,7 +915,7 @@ class MediaStore:
     - 生成缩略图（图片：线程；视频：异步子进程）
     - 删除文件（只删 media_dir 下的文件）
     """
-    def __init__(self, media_dir: str):
+    def __init__(self, media_dir: str) -> None:
         self.media_dir = os.path.abspath(media_dir)
         os.makedirs(self.media_dir, exist_ok=True)
         self.thumbs_dir = ensure_thumbs_dir(self.media_dir)
@@ -1057,7 +1057,7 @@ class ChatSession:
     - load_media / pending_media（staging）
     - tool trace 索引（支持 tool 事件“就地更新”）
     """
-    def __init__(self, session_id: str, cfg: Settings):
+    def __init__(self, session_id: str, cfg: Settings) -> None:
         self.session_id = session_id
         self.cfg = cfg
         self.lang = "zh"
@@ -1504,7 +1504,7 @@ class ChatSession:
 
 
 class SessionStore:
-    def __init__(self, cfg: Settings):
+    def __init__(self, cfg: Settings) -> None:
         self.cfg = cfg
         self._lock = asyncio.Lock()
         self._sessions: Dict[str, ChatSession] = {}
@@ -1528,7 +1528,7 @@ class SessionStore:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> None:
     cfg = load_settings(default_config_path())
     app.state.cfg = cfg
     app.state.developer_mode = is_developer_mode(cfg)
@@ -1641,7 +1641,7 @@ def _get_provider_ui_label(section_name: str, provider: str, provider_cfg: Any) 
 
     return _PROVIDER_UI_LABEL_OVERRIDES.get(provider_key, _s(provider))
 
-def _read_config_toml(path: str) -> dict:
+def _read_config_toml(path: str) -> dict[str, Any]:
     if tomllib is None:
         return {}
     try:
@@ -1663,7 +1663,7 @@ def _get_default_pexels_api_key(cfg: Settings) -> str:
     except Exception:
         return ""
 
-def _normalize_field_item(item) -> dict | None:
+def _normalize_field_item(item: Any) -> dict[str, Any] | None:
     """
     item 支持：
     - "uid"
@@ -1679,7 +1679,7 @@ def _normalize_field_item(item) -> dict | None:
         }
     return None
 
-def _build_provider_ui_schema_from_config(config_path: str, section_name: str) -> dict:
+def _build_provider_ui_schema_from_config(config_path: str, section_name: str) -> dict[str, Any]:
     """
     返回：
     {
@@ -1731,13 +1731,13 @@ def _build_provider_ui_schema_from_config(config_path: str, section_name: str) -
     return {"providers": providers_out}
 
 @app.get("/")
-async def index():
+async def index() -> FileResponse | Response:
     if not os.path.exists(INDEX_HTML):
         return Response("index.html not found. Put it under ./web/index.html", media_type="text/plain", status_code=404)
     return FileResponse(INDEX_HTML, media_type="text/html")
 
 @app.get("/node-map")
-async def node_map():
+async def node_map() -> FileResponse | Response:
     if not os.path.exists(NODE_MAP_HTML):
         return Response(
             "node_map.html not found. Put it under ./web/node_map/node_map.html",
@@ -1747,12 +1747,12 @@ async def node_map():
     return FileResponse(NODE_MAP_HTML, media_type="text/html")
 
 @api.get("/meta/tts")
-async def get_tts_ui_schema():
+async def get_tts_ui_schema() -> JSONResponse:
     schema = _build_provider_ui_schema_from_config(default_config_path(), "generate_voiceover")
     return JSONResponse(schema)
 
 @api.get("/meta/ai_transition")
-async def get_ai_transition_ui_schema():
+async def get_ai_transition_ui_schema() -> JSONResponse:
     schema = _build_provider_ui_schema_from_config(default_config_path(), "generate_ai_transition")
     return JSONResponse(schema)
 
@@ -1760,21 +1760,21 @@ async def get_ai_transition_ui_schema():
 # Sessions (REST)
 # -------------------------
 @api.post("/sessions")
-async def create_session():
+async def create_session() -> JSONResponse:
     store: SessionStore = app.state.sessions
     sess = await store.create()
     return JSONResponse(sess.snapshot())
 
 
 @api.get("/sessions/{session_id}")
-async def get_session(session_id: str):
+async def get_session(session_id: str) -> JSONResponse:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
     return JSONResponse(sess.snapshot())
 
 
 @api.post("/sessions/{session_id}/clear")
-async def clear_session_chat(session_id: str):
+async def clear_session_chat(session_id: str) -> JSONResponse:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
     async with sess.chat_lock:
@@ -1792,7 +1792,7 @@ async def clear_session_chat(session_id: str):
     return JSONResponse({"ok": True})
 
 @api.post("/sessions/{session_id}/cancel")
-async def cancel_session_turn(session_id: str):
+async def cancel_session_turn(session_id: str) -> JSONResponse:
     """
     打断当前正在进行的 LLM turn（流式回复/工具调用）。
     - 不清空 history / lc_messages
@@ -1808,7 +1808,7 @@ async def cancel_session_turn(session_id: str):
 # media (REST, session-scoped)
 # -------------------------
 @api.post("/sessions/{session_id}/media")
-async def upload_media(session_id: str, request: Request, files: List[UploadFile] = File(...)):
+async def upload_media(session_id: str, request: Request, files: List[UploadFile] = File(...)) -> JSONResponse:
     if not isinstance(files, list) or not files:
         raise HTTPException(status_code=400, detail="no files")
 
@@ -1856,7 +1856,7 @@ async def upload_media(session_id: str, request: Request, files: List[UploadFile
             pass
 
 @api.post("/sessions/{session_id}/media/init")
-async def init_resumable_media_upload(session_id: str, request: Request):
+async def init_resumable_media_upload(session_id: str, request: Request) -> JSONResponse:
     try:
         data = await request.json()
         if not isinstance(data, dict):
@@ -1923,7 +1923,7 @@ async def upload_resumable_media_chunk(
     upload_id: str,
     index: int = Form(...),
     chunk: UploadFile = File(...),
-):
+) -> JSONResponse:
     if UPLOAD_SEM.locked():
         raise HTTPException(status_code=429, detail="上传并发过高，请稍后重试")
     await UPLOAD_SEM.acquire()
@@ -1988,7 +1988,7 @@ async def upload_resumable_media_chunk(
 
 
 @api.post("/sessions/{session_id}/media/{upload_id}/complete")
-async def complete_resumable_media_upload(session_id: str, upload_id: str):
+async def complete_resumable_media_upload(session_id: str, upload_id: str) -> JSONResponse:
     if UPLOAD_SEM.locked():
         raise HTTPException(status_code=429, detail="上传并发过高，请稍后重试")
     await UPLOAD_SEM.acquire()
@@ -2039,7 +2039,7 @@ async def complete_resumable_media_upload(session_id: str, upload_id: str):
 
 
 @api.post("/sessions/{session_id}/media/{upload_id}/cancel")
-async def cancel_resumable_media_upload(session_id: str, upload_id: str):
+async def cancel_resumable_media_upload(session_id: str, upload_id: str) -> JSONResponse:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
 
@@ -2060,14 +2060,14 @@ async def cancel_resumable_media_upload(session_id: str, upload_id: str):
     return JSONResponse({"ok": True})
 
 @api.get("/sessions/{session_id}/media/pending")
-async def get_pending_media(session_id: str):
+async def get_pending_media(session_id: str) -> JSONResponse:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
     return JSONResponse({"pending_media": sess.public_pending_media()})
 
 
 @api.delete("/sessions/{session_id}/media/pending/{media_id}")
-async def delete_pending_media(session_id: str, media_id: str):
+async def delete_pending_media(session_id: str, media_id: str) -> JSONResponse:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
     await sess.delete_pending_media(media_id)
@@ -2075,7 +2075,7 @@ async def delete_pending_media(session_id: str, media_id: str):
 
 
 @api.get("/sessions/{session_id}/media/{media_id}/thumb")
-async def get_media_thumb(session_id: str, media_id: str):
+async def get_media_thumb(session_id: str, media_id: str) -> FileResponse | Response:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
 
@@ -2099,7 +2099,7 @@ async def get_media_thumb(session_id: str, media_id: str):
 
 
 @api.get("/sessions/{session_id}/media/{media_id}/file")
-async def get_media_file(session_id: str, media_id: str):
+async def get_media_file(session_id: str, media_id: str) -> FileResponse:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
 
@@ -2120,7 +2120,7 @@ async def get_media_file(session_id: str, media_id: str):
     )
 
 @api.get("/sessions/{session_id}/preview")
-async def preview_local_file(session_id: str, path: str):
+async def preview_local_file(session_id: str, path: str) -> FileResponse:
     """
     把 summary.preview_urls 里的“服务器本地路径”安全地转成可访问 URL。
     只允许访问：media_dir / outputs_dir / outputs_dir / bgm_dir / .server_cache 这些根目录下的文件。
@@ -2187,7 +2187,7 @@ def extract_text_delta(msg_chunk: Any) -> str:
     return c if isinstance(c, str) else ""
 
 
-async def ws_send(ws: WebSocket, type_: str, data: Any = None):
+async def ws_send(ws: WebSocket, type_: str, data: Any = None) -> bool:
     if getattr(ws, "client_state", None) != WebSocketState.CONNECTED:
         return False
     try:
@@ -2204,7 +2204,7 @@ async def ws_send(ws: WebSocket, type_: str, data: Any = None):
         return False
 
 @asynccontextmanager
-async def mcp_sink_context(sink_func):
+async def mcp_sink_context(sink_func: Any) -> Any:
     token = set_mcp_log_sink(sink_func)
     try:
         yield
@@ -2213,7 +2213,7 @@ async def mcp_sink_context(sink_func):
 
 
 @app.websocket("/ws/sessions/{session_id}/chat")
-async def ws_chat(ws: WebSocket, session_id: str):
+async def ws_chat(ws: WebSocket, session_id: str) -> None:
     client_ip = _client_ip_from_ws(ws, RATE_LIMIT_TRUST_PROXY_HEADERS)
 
     ok, retry_after, _ = await RATE_LIMITER.allow(
@@ -2448,7 +2448,7 @@ async def ws_chat(ws: WebSocket, session_id: str):
                         loop = asyncio.get_running_loop()
                         out_q: asyncio.Queue[Tuple[str, Any]] = asyncio.Queue()
 
-                        def sink(ev: Any):
+                        def sink(ev: Any) -> None:
                             # MCP interceptor 可能 emit 非 dict；这里只收 dict
                             if isinstance(ev, dict):
                                 loop.call_soon_threadsafe(out_q.put_nowait, ("mcp", ev))
@@ -2470,7 +2470,7 @@ async def ws_chat(ws: WebSocket, session_id: str):
                             [SystemMessage(content="\n\n".join(_system_parts))] if _system_parts else []
                         ) + _non_system
 
-                        async def pump_agent():
+                        async def pump_agent() -> None:
                             nonlocal new_messages
                             try:
                                 stream = sess.agent.astream(
@@ -2527,7 +2527,7 @@ async def ws_chat(ws: WebSocket, session_id: str):
                         seg_text = ""
                         seg_ts: Optional[float] = None
 
-                        async def flush_segment(send_flush_event: bool):
+                        async def flush_segment(send_flush_event: bool) -> None:
                             """
                             - send_flush_event=True：告诉前端立刻结束当前 assistant 气泡（不结束整个 turn）
                             - 若 seg_text 有内容：写入 history（用于刷新/回放）
