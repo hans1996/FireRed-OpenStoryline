@@ -17,7 +17,7 @@ from open_storyline.nodes.node_schema import RenderVideoInput
 from open_storyline.nodes.core_nodes.generate_voiceover import GenerateVoiceoverNode
 
 
-REPO_CONFIG = Path("/media/hans/DATA/FireRed-OpenStoryline/config.toml")
+REPO_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
 
 
 class BuiltinModelSelectionTests(unittest.TestCase):
