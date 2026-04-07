@@ -9,7 +9,7 @@ from open_storyline.nodes.node_state import NodeState
 from open_storyline.nodes.node_summary import NodeSummary
 
 
-REPO_CONFIG = Path("/media/hans/DATA/FireRed-OpenStoryline/config.toml")
+REPO_CONFIG = Path(__file__).resolve().parent.parent / "config.toml"
 
 
 class SearchWebConfigTests(unittest.TestCase):
