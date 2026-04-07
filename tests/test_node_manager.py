@@ -1,3 +1,4 @@
+import os
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
@@ -25,8 +26,8 @@ _lc.tools.structured.StructuredTool = _lc.tools.structured  # alias for isinstan
 # ─────────────────────────────────────────────────────────────────
 # Imports  – must come AFTER the stubs
 # ─────────────────────────────────────────────────────────────────
-PROJECT_ROOT = "/media/hans/DATA/FireRed-OpenStoryline"
-SRC = f"{PROJECT_ROOT}/src"
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC = os.path.join(PROJECT_ROOT, "src")
 for p in (SRC, PROJECT_ROOT):
     if p not in sys.path:
         sys.path.insert(0, p)
