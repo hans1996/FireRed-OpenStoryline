@@ -1,5 +1,6 @@
 from typing import Any, Dict
 import asyncio
+import logging
 
 from open_storyline.nodes.core_nodes.base_node import BaseNode, NodeMeta
 from src.open_storyline.utils.prompts import get_prompt
@@ -7,6 +8,8 @@ from open_storyline.utils.parse_json import parse_json_dict
 from open_storyline.nodes.node_state import NodeState
 from open_storyline.nodes.node_schema import UnderstandClipsInput
 from open_storyline.utils.register import NODE_REGISTRY
+
+logger = logging.getLogger(__name__)
 
 @NODE_REGISTRY.register()
 class UnderstandClipsNode(BaseNode):
@@ -152,9 +155,10 @@ class UnderstandClipsNode(BaseNode):
 
             try:
                 obj = parse_json_dict(raw)
-            except:
+            except Exception as e:
+                logger.error(f"understand_clips: Failed to parse LLM output for clip {clip_id}: {e}. Raw output: {(raw or '')[:200]}")
                 text = (raw or "").strip()
-                out_item["caption"] = text if text else "Error: Unable to parse model output"
+                out_item["caption"] = text if text else f"Error: Unable to parse model output: {type(e).__name__}: {e}"
                 clip_captions.append(out_item)
                 continue
 

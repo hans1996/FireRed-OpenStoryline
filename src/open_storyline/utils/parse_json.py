@@ -8,7 +8,7 @@ def try_parse_tool_call(text:str) -> Optional[Dict[str, Any]]:
     """
     try:
         obj = parse_json_dict(text)
-    except:
+    except Exception:
         return None
     
     if obj.get("action") != "call_tool":
