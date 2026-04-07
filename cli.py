@@ -25,7 +25,7 @@ from open_storyline.mcp.hooks.chat_middleware import PrintStreamingTokens
 
 _MEDIA_STATS_INFO_IDX = 1
 
-async def main():
+async def main() -> None:
     session_id = f"run_{int(time.time())}_{uuid.uuid4().hex[:8]}"
     cfg = load_settings(default_config_path())
     
