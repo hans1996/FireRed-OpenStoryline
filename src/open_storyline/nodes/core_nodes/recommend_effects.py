@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from open_storyline.nodes.node_schema import RecommendTransitionInput, Recommend
 from open_storyline.utils.parse_json import parse_json_dict
 from src.open_storyline.config import Settings
 from open_storyline.utils.register import NODE_REGISTRY
+
+logger = logging.getLogger(__name__)
 
 @NODE_REGISTRY.register()
 class RecommendTransitionNode(BaseNode):
@@ -107,9 +110,10 @@ class RecommendTextNode(BaseNode):
         )
         try:
             selected_json = parse_json_dict(raw)
-        except:
-            selected_json = (raw or "").strip() if raw else "Error: Unable to parse the model output"
-            node_state.node_summary.add_error(selected_json)
+        except Exception as e:
+            logger.error(f"{self.meta.node_id}: Failed to parse LLM font recommendation output: {e}. Raw output: {(raw or '')[:200]}")
+            selected_json = None
+            node_state.node_summary.add_error(f"Failed to parse font recommendation: {type(e).__name__}: {e}")
             return None
         selected_json.update({"font_color": inputs.get("font_color", (255,255,255,255))})
         node_state.node_summary.info_for_user(f"[{self.meta.node_id}] Use font `{selected_json['font_name']}`")

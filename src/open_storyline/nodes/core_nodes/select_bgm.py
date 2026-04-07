@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict
 from pathlib import Path
 
@@ -13,6 +14,8 @@ from open_storyline.utils.recall import StorylineRecall
 from src.open_storyline.utils.prompts import get_prompt
 from open_storyline.utils.parse_json import parse_json_dict
 from open_storyline.utils.register import NODE_REGISTRY
+
+logger = logging.getLogger(__name__)
 
 @NODE_REGISTRY.register()
 class SelectBGMNode(BaseNode):
@@ -96,9 +99,10 @@ class SelectBGMNode(BaseNode):
         )
         try:
             selected_json = parse_json_dict(raw)
-        except:
-            selected_json = (raw or "").strip() if raw else "Error: Unable to parse the model output"
-            node_state.node_summary.add_error(selected_json)
+        except Exception as e:
+            logger.error(f"select_bgm: Failed to parse LLM BGM recommendation output: {e}. Raw output: {(raw or '')[:200]}")
+            node_state.node_summary.add_error(f"Failed to parse BGM recommendation: {type(e).__name__}: {e}")
+            selected_json = {}
         
         if not isinstance(selected_json, Dict) or 'path' not in selected_json:
             # Demotion select the first one of candidates

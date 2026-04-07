@@ -2947,5 +2947,6 @@ async def ws_chat(ws: WebSocket, session_id: str):
     finally:
         try:
             WS_CONN_SEM.release()
-        except:
+        except (ValueError, RuntimeError, OSError) as e:
+            logger.error(f"Failed to release WS_CONN_SEM: {e}")
             pass

@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict
 
 from open_storyline.nodes.core_nodes.base_node import BaseNode, NodeMeta
@@ -7,6 +8,8 @@ from open_storyline.mcp.sampling_requester import LLMClient
 from src.open_storyline.utils.prompts import get_prompt
 from open_storyline.utils.parse_json import parse_json_dict
 from open_storyline.utils.register import NODE_REGISTRY
+
+logger = logging.getLogger(__name__)
 
 @NODE_REGISTRY.register()
 class FilterClipsNode(BaseNode):
@@ -84,9 +87,10 @@ class FilterClipsNode(BaseNode):
             select_ids = _extract_selected_ids(obj, input_clip_ids)
             node_state.node_summary.info_for_user(f"Successfully filtered {len(select_ids)} clips")
         
-        except:
+        except Exception as e:
+            logger.error(f"Error parsing LLM output or extracting selected clips: {e}")
             select_ids = input_clip_ids
-            node_state.node_summary.info_for_user("Failed to parse model output, using all clips")
+            node_state.node_summary.info_for_user(f"Failed to parse model output ({type(e).__name__}: {e}), using all clips")
 
         return {
             "clip_captions": clip_captions,
