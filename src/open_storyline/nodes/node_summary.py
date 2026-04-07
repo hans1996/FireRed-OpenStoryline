@@ -147,9 +147,9 @@ class NodeSummary:
     
     def get_logs_by_level(
         self,
-        level:str ,
-        compress_log: bool=False, # 暂时未实现 TODO
-    ) -> Dict[str,Any]:
+        level: str,
+        compress_log: bool = False,
+    ) -> Dict[str, Any]:
         self.all_logs = {
             self.ERROR: self.log_error,
             self.DEBUG: self.log_debug,
@@ -160,6 +160,8 @@ class NodeSummary:
 
         selected_log = self.all_logs[level]
 
+        if compress_log:
+            return self._extract_log_compressed(selected_log)
         return self._extract_log(selected_log)
     
     def _extract_log(
@@ -193,6 +195,66 @@ class NodeSummary:
             "extra_data_list": extra_data_list
         }
         return result
+
+    def _extract_log_compressed(
+        self,
+        log_content: List[LogEntry],
+        max_lines: int = 20,
+    ) -> Dict[str, Any]:
+        """
+        Extract log content in compressed format for large log histories.
+
+        When logs exceed max_lines, keeps the first N and last N entries with
+        a summary of the skipped middle entries. Useful for reducing token usage
+        when feeding logs to LLMs.
+
+        Args:
+            log_content: List of log entries
+            max_lines: Maximum number of log entries to include (default: 20)
+
+        Returns:
+            Formatted log string with compressed entries
+        """
+        if not log_content:
+            return {}
+
+        if len(log_content) <= max_lines:
+            # No compression needed — same as regular extraction
+            return self._extract_log(log_content)
+
+        half = max_lines // 2
+        keep_first = log_content[:half]
+        keep_last = log_content[-(max_lines - half):]
+        skipped = len(log_content) - max_lines
+
+        log_lines: List[str] = []
+        extra_data_list: List[Dict[str, Any]] = []
+
+        for entry in keep_first:
+            log_line = f"[{entry.timestamp}] {entry.message}"
+            if entry.artifact_id:
+                log_line += f" [artifact_id: {entry.artifact_id}]"
+            log_lines.append(log_line)
+            extra_data_list.append(entry.extra_data)
+
+        # Insert compressed summary marker
+        log_lines.append(f"\n--- ... {skipped} log entries omitted ... ---\n")
+        extra_data_list.append({})
+
+        for entry in keep_last:
+            log_line = f"[{entry.timestamp}] {entry.message}"
+            if entry.artifact_id:
+                log_line += f" [artifact_id: {entry.artifact_id}]"
+            log_lines.append(log_line)
+            extra_data_list.append(entry.extra_data)
+
+        return {
+            "log_lines": "\n".join(log_lines),
+            "extra_data_list": extra_data_list,
+            "compressed": True,
+            "total_entries": len(log_content),
+            "entries_shown": max_lines,
+        }
     
     def _get_preview_urls(
         self,
