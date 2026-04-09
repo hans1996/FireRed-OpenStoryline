@@ -238,6 +238,8 @@ If you want to contribute or run the project locally as a developer, see the [De
 
 ### 1. Start the MCP Server
 
+For details on which tools the MCP server exposes and how to extend them, see the [MCP Tools and Extension Guide](docs/mcp-tools.md).
+
 #### MacOS or Linux
 
 ```bash
@@ -325,6 +327,7 @@ FireRed-OpenStoryline/
 - [API Key Configuration](docs/source/en/api-key.md) - How to configure and manage API keys
 - [Usage Tutorial](docs/source/en/guide.md) - Common use cases and basic operations
 - [Developer Setup Guide](docs/developer-setup.md) - Contributor-focused local setup, entry points, and validation commands
+- [MCP Tools and Extension Guide](docs/mcp-tools.md) - Default MCP tools, registration flow, and extension points
 - [FAQ](docs/source/en/faq.md) - Frequently asked questions
 
 ## TODO
