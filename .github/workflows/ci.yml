@@ -21,19 +21,22 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install ruff
-        run: pip install ruff
+      - name: Install CI dependencies
+        run: |
+          pip install ruff pytest numpy pydantic
 
       - name: Lint with Ruff
         run: |
           ruff check --output-format=github --select=E,F,W,I,N,UP . || true
           ruff format --check . || true
 
-      # We don't have pytest dependencies installed, so just do a basic syntax check.
-      # The autodev script can enhance this later.
       - name: Python syntax check
         run: |
           find . -name "*.py" -not -path "./.git/*" -not -path "./outputs/*" -not -path "./__pycache__/*" | xargs python3 -m py_compile
+
+      - name: Pytest smoke tests
+        run: |
+          pytest tests/test_ffmpeg_utils.py tests/test_node_manager.py tests/test_node_schema.py -q
 
       - name: Basic import test
         run: |
