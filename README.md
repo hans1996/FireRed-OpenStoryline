@@ -233,6 +233,8 @@ sh build_env.sh
 
 Note: Before starting, you need to configure the API-Key in config.toml first. For details, please refer to the documentation [API-Key Configuration](docs/source/en/api-key.md)
 
+If you want to contribute or run the project locally as a developer, see the [Developer Setup Guide](docs/developer-setup.md).
+
 
 ### 1. Start the MCP Server
 
@@ -322,6 +324,7 @@ FireRed-OpenStoryline/
 
 - [API Key Configuration](docs/source/en/api-key.md) - How to configure and manage API keys
 - [Usage Tutorial](docs/source/en/guide.md) - Common use cases and basic operations
+- [Developer Setup Guide](docs/developer-setup.md) - Contributor-focused local setup, entry points, and validation commands
 - [FAQ](docs/source/en/faq.md) - Frequently asked questions
 
 ## TODO
