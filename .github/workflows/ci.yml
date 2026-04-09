@@ -23,12 +23,22 @@ jobs:
 
       - name: Install CI dependencies
         run: |
-          pip install ruff pytest numpy pydantic
+          pip install ruff pylint pytest numpy pydantic
 
-      - name: Lint with Ruff
+      - name: Lint targeted Python files with Ruff
         run: |
-          ruff check --output-format=github --select=E,F,W,I,N,UP . || true
-          ruff format --check . || true
+          ruff check --output-format=github \
+            scripts/update_config.py \
+            tests/test_remotion_integration.py
+          ruff format --check \
+            scripts/update_config.py \
+            tests/test_remotion_integration.py
+
+      - name: Lint targeted Python files with Pylint
+        run: |
+          PYTHONPATH=src pylint --errors-only \
+            scripts/update_config.py \
+            tests/test_remotion_integration.py
 
       - name: Python syntax check
         run: |

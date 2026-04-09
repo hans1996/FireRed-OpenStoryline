@@ -1,4 +1,5 @@
 """Tests for Remotion integration."""
+
 import json
 import subprocess
 import unittest
@@ -29,12 +30,19 @@ class RemotionProjectTests(unittest.TestCase):
 
     def test_timeline_json(self):
         timeline = {
-            "fps": 25, "width": 1920, "height": 1080,
+            "fps": 25,
+            "width": 1920,
+            "height": 1080,
             "total_duration": 5000,
             "tracks": {"video": [], "bgm": [], "voiceover": []},
             "subtitles": [],
-            "style": {"bg_color": [0, 0, 0], "font_color": [255, 255, 255],
-                      "font_size": 40, "transition_duration": 500, "layout_mode": "fit"},
+            "style": {
+                "bg_color": [0, 0, 0],
+                "font_color": [255, 255, 255],
+                "font_size": 40,
+                "transition_duration": 500,
+                "layout_mode": "fit",
+            },
         }
         data = {"timelineData": timeline}
         self.assertIsNotNone(json.dumps(data))
@@ -43,7 +51,10 @@ class RemotionProjectTests(unittest.TestCase):
 class TimelineConversionTests(unittest.TestCase):
     def test_ms_to_frames(self):
         fps = 25
-        ms_to_frame = lambda ms: round((ms / 1000.0) * fps)
+
+        def ms_to_frame(ms: int) -> int:
+            return round((ms / 1000.0) * fps)
+
         self.assertEqual(ms_to_frame(1000), 25)
         self.assertEqual(ms_to_frame(4000), 100)
         self.assertEqual(ms_to_frame(3500), 88)
