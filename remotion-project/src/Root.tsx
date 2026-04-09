@@ -5,39 +5,39 @@ import type { NewsItem, NewsReportProps } from './NewsReport';
 
 const items: NewsItem[] = [
   {
-    title: 'OpenAI Slows New Model Launch',
+    title: 'OpenAI Eyes Cyber Product',
     subtitle:
-      'Axios reported OpenAI is staggering release of a new model after identifying cybersecurity risks that require tighter controls.',
+      'Axios reported OpenAI is preparing a new cybersecurity-focused product aimed at enterprise and government use cases.',
     bgGradient: ['#081a3a', '#0d2b5f', '#153d86'],
   },
   {
-    title: 'Meta Debuts Muse Spark',
+    title: 'Stargate UK Put On Hold',
     subtitle:
-      'Meta unveiled its new Muse Spark AI model as it pushes to regain ground on Google, OpenAI, and Anthropic.',
+      'OpenAI paused its UK Stargate data-center project amid regulatory concerns and high energy prices.',
     bgGradient: ['#0a2418', '#103829', '#18513b'],
   },
   {
-    title: 'Anthropic Holds Back Top Model',
+    title: 'Anthropic Launches Glasswing',
     subtitle:
-      'Anthropic said its newest model is too powerful to release broadly, underscoring growing safety tension at the frontier.',
+      'Anthropic unveiled Project Glasswing to help defend critical software systems against AI-era cyber threats.',
     bgGradient: ['#1d1038', '#2a1756', '#3d2380'],
   },
   {
-    title: 'Google Ships Offline Speech AI',
+    title: 'Google-Intel AI Chip Pact',
     subtitle:
-      'Google introduced a speech-to-text app that works even without internet access, expanding practical on-device AI.',
+      'Google expanded its partnership with Intel to push forward AI chips and cloud infrastructure capacity.',
     bgGradient: ['#06272f', '#0b3c48', '#135866'],
   },
   {
-    title: 'Microsoft Pushes New Speech Models',
+    title: 'Shorts Adds AI Avatars',
     subtitle:
-      'Microsoft rolled out fresh speech models as part of a broader move toward a more self-reliant first-party AI stack.',
+      'Google is bringing AI-generated avatars to YouTube Shorts as it broadens creator-facing generative tools.',
     bgGradient: ['#301228', '#4a1b3d', '#6a2757'],
   },
   {
-    title: 'AI Labs Unite on Distillation Threat',
+    title: 'Meta Doubles Down on Compute',
     subtitle:
-      'OpenAI, Google, and Anthropic are reportedly coordinating to counter Chinese AI model distillation and theft risks.',
+      'Meta deepened its AI cloud partnership with CoreWeave through a fresh $21 billion infrastructure deal.',
     bgGradient: ['#1b2408', '#2b3810', '#41561a'],
   },
 ];
