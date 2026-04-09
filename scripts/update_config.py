@@ -10,8 +10,10 @@ from typing import Any
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_PATH = ROOT_DIR / "config.toml"
 
+
 class ConfigUpdateError(Exception):
     pass
+
 
 SECTION_RE = re.compile(r"^\s*\[(.+?)\]\s*(?:#.*)?$")
 
@@ -128,9 +130,7 @@ def split_value_and_comment(text: str) -> tuple[str, str]:
 def update_text(text: str, parts: list[str], new_value: Any) -> str:
     section_parts = parts[:-1]
     leaf = parts[-1]
-    key_re = re.compile(
-        rf"^(?P<prefix>\s*{re.escape(leaf)}\s*=\s*)(?P<body>.*?)(?P<newline>\r?\n?)$"
-    )
+    key_re = re.compile(rf"^(?P<prefix>\s*{re.escape(leaf)}\s*=\s*)(?P<body>.*?)(?P<newline>\r?\n?)$")
 
     lines = text.splitlines(keepends=True)
     in_target_section = len(section_parts) == 0
