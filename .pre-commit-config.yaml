@@ -1,7 +1,15 @@
-# See https://pre-commit.com for more information
+exclude: |
+  ^(
+    outputs/|
+    remotion-project/node_modules/|
+    \.venv/|
+    test_venv/|
+    __pycache__/
+  )
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-merge-conflict
       - id: check-added-large-files
@@ -14,8 +22,10 @@ repos:
       - id: detect-private-key
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.6
+    rev: v0.15.9
     hooks:
-      - id: ruff
-        args: ["--fix"]
+      - id: ruff-check
+        args: [--fix]
+        files: \.(py|pyi)$
       - id: ruff-format
+        files: \.(py|pyi)$
