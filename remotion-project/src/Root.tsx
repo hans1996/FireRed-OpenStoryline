@@ -5,39 +5,39 @@ import type { NewsItem, NewsReportProps } from './NewsReport';
 
 const items: NewsItem[] = [
   {
-    title: 'OpenAI Eyes Cyber Product',
+    title: 'OpenAI Slashes Pro Price',
     subtitle:
-      'Axios reported OpenAI is preparing a new cybersecurity-focused product aimed at enterprise and government use cases.',
+      'OpenAI cut ChatGPT Pro to $100 a month for heavy Codex users, undercutting rival premium AI plans.',
     bgGradient: ['#081a3a', '#0d2b5f', '#153d86'],
   },
   {
-    title: 'Stargate UK Put On Hold',
+    title: 'UK Stargate Project Paused',
     subtitle:
-      'OpenAI paused its UK Stargate data-center project amid regulatory concerns and high energy prices.',
+      'OpenAI halted its UK data-center plan as energy costs and regulation complicated the proposed buildout.',
     bgGradient: ['#0a2418', '#103829', '#18513b'],
   },
   {
-    title: 'Anthropic Launches Glasswing',
+    title: 'Anthropic Unveils Glasswing',
     subtitle:
-      'Anthropic unveiled Project Glasswing to help defend critical software systems against AI-era cyber threats.',
+      'Anthropic introduced Project Glasswing, a security-focused system for protecting critical software in the AI era.',
     bgGradient: ['#1d1038', '#2a1756', '#3d2380'],
   },
   {
-    title: 'Google-Intel AI Chip Pact',
+    title: 'Google And Intel Expand AI',
     subtitle:
-      'Google expanded its partnership with Intel to push forward AI chips and cloud infrastructure capacity.',
+      'Google and Intel widened their partnership to advance AI chips and the infrastructure powering large-scale models.',
     bgGradient: ['#06272f', '#0b3c48', '#135866'],
   },
   {
-    title: 'Shorts Adds AI Avatars',
+    title: 'Gemini Answers Go 3D',
     subtitle:
-      'Google is bringing AI-generated avatars to YouTube Shorts as it broadens creator-facing generative tools.',
+      'Google’s Gemini can now respond with interactive 3D models and simulations for more visual explanations.',
     bgGradient: ['#301228', '#4a1b3d', '#6a2757'],
   },
   {
-    title: 'Meta Doubles Down on Compute',
+    title: 'Meta Locks In More Compute',
     subtitle:
-      'Meta deepened its AI cloud partnership with CoreWeave through a fresh $21 billion infrastructure deal.',
+      'Meta and CoreWeave expanded their AI cloud partnership with a fresh $21 billion infrastructure deal.',
     bgGradient: ['#1b2408', '#2b3810', '#41561a'],
   },
 ];
