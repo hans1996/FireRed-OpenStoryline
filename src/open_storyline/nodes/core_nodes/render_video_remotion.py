@@ -88,12 +88,16 @@ class RenderVideoRemotionNode(BaseNode):
             p = ar.split(":")
             ar = float(p[0]) / float(p[1])
         else:
-            try: ar = float(ar)
-            except: ar = 16 / 9
+            try:
+                ar = float(ar)
+            except (TypeError, ValueError):
+                ar = 16 / 9
 
         max_dim = 1080
-        try: max_dim = int(inputs.get("output_max_dimension_px", 1080))
-        except: max_dim = 1080
+        try:
+            max_dim = int(inputs.get("output_max_dimension_px", 1080))
+        except (TypeError, ValueError):
+            max_dim = 1080
 
         if ar >= 1.0: width = max_dim; height = max(2, round(width / ar))
         else: height = max_dim; width = max(2, round(height * ar))
@@ -130,10 +134,13 @@ class RenderVideoRemotionNode(BaseNode):
         try:
             result = subprocess.run(cmd, cwd=str(self.remotion_dir),
                                    capture_output=True, text=True, timeout=300)
-            if result.stdout: logger.info(f"Remotion: {result.stdout[-500:]}")
+            if result.stdout:
+                logger.info(f"Remotion: {result.stdout[-500:]}")
             if result.returncode == 0 and output_file.exists():
-                try: return str(output_file.relative_to(Path.cwd()))
-                except: return str(output_file)
+                try:
+                    return str(output_file.relative_to(Path.cwd()))
+                except ValueError:
+                    return str(output_file)
             return None
         except Exception as e:
             logger.error(f"Remotion error: {e}")
