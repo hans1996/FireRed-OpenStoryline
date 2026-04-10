@@ -19,11 +19,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install CI dependencies
         run: |
-          pip install ruff pylint pytest numpy pydantic
+          pip install ruff pylint pytest numpy pydantic mcp
 
       - name: Lint targeted Python files with Ruff
         run: |
