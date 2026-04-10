@@ -5,40 +5,40 @@ import type { NewsItem, NewsReportProps } from './NewsReport';
 
 const items: NewsItem[] = [
   {
-    title: 'OpenAI Slashes Pro Price',
+    title: 'Anthropic Eyes Custom Chips',
     subtitle:
-      'OpenAI cut ChatGPT Pro to $100 a month for heavy Codex users, undercutting rival premium AI plans.',
-    bgGradient: ['#081a3a', '#0d2b5f', '#153d86'],
+      'Reuters reported Anthropic is weighing its own AI chips to reduce reliance on outside accelerators as demand surges.',
+    bgGradient: ['#071a33', '#0b2a4d', '#123b6b'],
   },
   {
-    title: 'UK Stargate Project Paused',
+    title: 'OpenAI Pauses UK Campus',
     subtitle:
-      'OpenAI halted its UK data-center plan as energy costs and regulation complicated the proposed buildout.',
-    bgGradient: ['#0a2418', '#103829', '#18513b'],
+      'OpenAI put its UK data-center project on hold while it reworks plans around regulation and rising build costs.',
+    bgGradient: ['#0a2418', '#11362a', '#1a4c3a'],
   },
   {
-    title: 'Anthropic Unveils Glasswing',
+    title: 'ChatGPT Pro Drops To $100',
     subtitle:
-      'Anthropic introduced Project Glasswing, a security-focused system for protecting critical software in the AI era.',
-    bgGradient: ['#1d1038', '#2a1756', '#3d2380'],
+      'CNBC said OpenAI cut ChatGPT Pro pricing for heavy Codex users, turning up pressure on premium rival plans.',
+    bgGradient: ['#22103d', '#34195d', '#4c2583'],
   },
   {
-    title: 'Google And Intel Expand AI',
+    title: 'Google And Intel Go Deeper',
     subtitle:
-      'Google and Intel widened their partnership to advance AI chips and the infrastructure powering large-scale models.',
-    bgGradient: ['#06272f', '#0b3c48', '#135866'],
+      'Google and Intel expanded their AI infrastructure partnership to push more chip capacity into large-scale model workloads.',
+    bgGradient: ['#06252c', '#0d3942', '#15535f'],
   },
   {
-    title: 'Gemini Answers Go 3D',
+    title: 'Meta Debuts Muse Spark',
     subtitle:
-      'Google’s Gemini can now respond with interactive 3D models and simulations for more visual explanations.',
-    bgGradient: ['#301228', '#4a1b3d', '#6a2757'],
+      'Meta launched Muse Spark, its first major AI model release under Alexandr Wang as it races to catch up in frontier AI.',
+    bgGradient: ['#301228', '#4a1c3f', '#6a2a5a'],
   },
   {
-    title: 'Meta Locks In More Compute',
+    title: 'Project Glasswing Launches',
     subtitle:
-      'Meta and CoreWeave expanded their AI cloud partnership with a fresh $21 billion infrastructure deal.',
-    bgGradient: ['#1b2408', '#2b3810', '#41561a'],
+      'Anthropic introduced Project Glasswing, aimed at securing critical software systems against emerging AI-era cyber risks.',
+    bgGradient: ['#1a2309', '#2a3810', '#41541a'],
   },
 ];
 
