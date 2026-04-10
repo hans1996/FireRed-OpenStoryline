@@ -9,6 +9,7 @@ __pycache__/
 
 # 虚拟环境 / Conda 环境目录
 .venv/
+.worktrees/
 venv/
 env/
 .env/
