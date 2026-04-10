@@ -17,7 +17,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Annotated, Any, Dict, List, Optional, Tuple, Set
 
-from fastapi import Path as FastAPIPath, Query as FastAPIQuery, Doc, Body
+from fastapi import Path as FastAPIPath, Query as FastAPIQuery, Body
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from starlette.websockets import WebSocketState, WebSocketDisconnect
@@ -1850,7 +1850,7 @@ def _build_provider_ui_schema_from_config(config_path: str, section_name: str) -
         404: {"description": "index.html not found", "model": ErrorResponse},
     },
 )
-async def index() -> FileResponse | Response:
+async def index() -> Response:
     """Serve the main web UI (index.html).
 
     Returns the primary HTML page for the OpenStoryline web application.
@@ -1870,7 +1870,7 @@ async def index() -> FileResponse | Response:
         404: {"description": "node_map.html not found", "model": ErrorResponse},
     },
 )
-async def node_map() -> FileResponse | Response:
+async def node_map() -> Response:
     """Serve the node map visualization page.
 
     Returns the HTML page that displays the workflow node map visualization.
@@ -2437,7 +2437,7 @@ async def delete_pending_media(
 async def get_media_thumb(
     session_id: Annotated[str, FastAPIPath(description="Unique session identifier")],
     media_id: Annotated[str, FastAPIPath(description="ID of the media to retrieve thumbnail for")],
-) -> FileResponse | Response:
+) -> Response:
     store: SessionStore = app.state.sessions
     sess = await store.get_or_404(session_id)
 
