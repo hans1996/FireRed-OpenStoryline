@@ -23,7 +23,7 @@ jobs:
 
       - name: Install CI dependencies
         run: |
-          pip install ruff pylint pytest numpy pydantic
+          pip install ruff pylint pytest numpy pydantic mcp
 
       - name: Lint targeted Python files with Ruff
         run: |
