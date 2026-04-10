@@ -5,40 +5,40 @@ import type { NewsItem, NewsReportProps } from './NewsReport';
 
 const items: NewsItem[] = [
   {
-    title: 'Anthropic Eyes Custom Chips',
+    title: 'Anthropic Unveils Glasswing',
     subtitle:
-      'Reuters reported Anthropic is weighing its own AI chips to reduce reliance on outside accelerators as demand surges.',
+      'Anthropic launched Project Glasswing, a new effort focused on securing critical software systems for the AI era.',
     bgGradient: ['#071a33', '#0b2a4d', '#123b6b'],
   },
   {
-    title: 'OpenAI Pauses UK Campus',
+    title: 'Anthropic Eyes Its Own Chips',
     subtitle:
-      'OpenAI put its UK data-center project on hold while it reworks plans around regulation and rising build costs.',
-    bgGradient: ['#0a2418', '#11362a', '#1a4c3a'],
+      'Reuters reported Anthropic is weighing custom AI chips to reduce dependence on outside accelerator suppliers.',
+    bgGradient: ['#0b2014', '#113525', '#1b4f38'],
+  },
+  {
+    title: 'Google And Intel Deepen AI Pact',
+    subtitle:
+      'Reuters said Google and Intel expanded their partnership to push harder on AI CPUs and data-center infrastructure.',
+    bgGradient: ['#1a1038', '#2a1a56', '#3f2a7d'],
+  },
+  {
+    title: 'OpenAI Pauses UK Data Center',
+    subtitle:
+      'OpenAI put its UK data-center project on hold as it reassesses rising costs and regulatory pressure, according to Reuters.',
+    bgGradient: ['#06262c', '#0d3c45', '#155762'],
   },
   {
     title: 'ChatGPT Pro Drops To $100',
     subtitle:
-      'CNBC said OpenAI cut ChatGPT Pro pricing for heavy Codex users, turning up pressure on premium rival plans.',
-    bgGradient: ['#22103d', '#34195d', '#4c2583'],
+      'OpenAI introduced a $100 ChatGPT Pro tier with much higher Codex usage limits, sharpening pressure on rivals.',
+    bgGradient: ['#2a1029', '#431842', '#61255f'],
   },
   {
-    title: 'Google And Intel Go Deeper',
+    title: 'Meta Reassigns AI Talent',
     subtitle:
-      'Google and Intel expanded their AI infrastructure partnership to push more chip capacity into large-scale model workloads.',
-    bgGradient: ['#06252c', '#0d3942', '#15535f'],
-  },
-  {
-    title: 'Meta Debuts Muse Spark',
-    subtitle:
-      'Meta launched Muse Spark, its first major AI model release under Alexandr Wang as it races to catch up in frontier AI.',
-    bgGradient: ['#301228', '#4a1c3f', '#6a2a5a'],
-  },
-  {
-    title: 'Project Glasswing Launches',
-    subtitle:
-      'Anthropic introduced Project Glasswing, aimed at securing critical software systems against emerging AI-era cyber risks.',
-    bgGradient: ['#1a2309', '#2a3810', '#41541a'],
+      'Reuters reported Meta moved top engineers into a new AI tooling team as competition in frontier model development intensifies.',
+    bgGradient: ['#1d220c', '#2f3814', '#48561f'],
   },
 ];
 
