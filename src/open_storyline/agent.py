@@ -4,9 +4,13 @@ from typing import Optional, Any
 import logging
 
 import httpx
+from openai import AsyncOpenAI
 
-from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
+
+from agents import Agent as OpenAIAgent
+from agents.model_settings import ModelSettings
+from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
 
 from langchain_mcp_adapters.callbacks import Callbacks
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -14,8 +18,12 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from open_storyline.config import Settings
 from open_storyline.storage.agent_memory import ArtifactStore
 from open_storyline.nodes.node_manager import NodeManager
-from open_storyline.mcp.hooks.chat_middleware import handle_tool_errors, on_progress, log_tool_request
+from open_storyline.mcp.hooks.chat_middleware import on_progress
 from open_storyline.mcp.sampling_handler import make_sampling_callback
+from open_storyline.openai_agents_runtime import (
+    OpenAIAgentsRuntime,
+    build_agents_function_tools,
+)
 from open_storyline.skills.skills_io import load_skills
 
 logger = logging.getLogger(__name__)
@@ -232,12 +240,34 @@ async def build_agent(
     skills = await load_skills(cfg.skills.skill_dir) # Load skills
     node_manager = NodeManager(tools)
 
-    # 4) Use LangChain's agent runtime to handle the multi-turn tool calling loop
-    agent = create_agent(
-        model=llm,
-        tools=tools+skills,
-        middleware=[log_tool_request, handle_tool_errors],
-        store=store,
-        context_schema=ClientContext,
+    model = OpenAIChatCompletionsModel(
+        model=llm_model,
+        openai_client=AsyncOpenAI(
+            base_url=llm_base_url,
+            api_key=llm_api_key,
+            timeout=llm_timeout,
+            max_retries=llm_max_retries,
+            default_headers={
+                "api-key": llm_api_key,
+                "Content-Type": "application/json",
+            },
+        ),
+    )
+
+    runtime_tools = build_agents_function_tools([*tools, *skills], store)
+    agent = OpenAIAgentsRuntime(
+        OpenAIAgent(
+            name="open_storyline",
+            instructions=(
+                "Follow the provided conversation history and use the available tools when needed. "
+                "Treat the provided system messages as the source of truth for language and behavior."
+            ),
+            model=model,
+            tools=runtime_tools,
+            model_settings=ModelSettings(
+                temperature=llm_temperature,
+                parallel_tool_calls=False,
+            ),
+        )
     )
     return agent, node_manager
