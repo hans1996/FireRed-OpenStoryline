@@ -347,6 +347,7 @@ async def _invoke_langchain_tool(tool: Any, runtime: LangChainToolRuntimeShim, a
 
 def build_agents_function_tools(langchain_tools: Sequence[Any], store: Any) -> list[FunctionTool]:
     wrapped_tools: list[FunctionTool] = []
+    seen_names: set[str] = set()
 
     for tool in langchain_tools:
         args_schema = getattr(tool, "args_schema", None)
@@ -430,15 +431,25 @@ def build_agents_function_tools(langchain_tools: Sequence[Any], store: Any) -> l
 
             return tool_output
 
-        wrapped_tools.append(
-            FunctionTool(
-                name=str(getattr(tool, "name", "") or ""),
-                description=str(getattr(tool, "description", "") or ""),
-                params_json_schema=params_json_schema,
-                on_invoke_tool=on_invoke_tool,
-                strict_json_schema=False,
+        tool_names = [str(getattr(tool, "name", "") or "").strip()]
+        if tool_names[0].startswith("storyline_"):
+            alias_name = tool_names[0][len("storyline_") :].strip()
+            if alias_name:
+                tool_names.append(alias_name)
+
+        for tool_name in tool_names:
+            if not tool_name or tool_name in seen_names:
+                continue
+            wrapped_tools.append(
+                FunctionTool(
+                    name=tool_name,
+                    description=str(getattr(tool, "description", "") or ""),
+                    params_json_schema=params_json_schema,
+                    on_invoke_tool=on_invoke_tool,
+                    strict_json_schema=False,
+                )
             )
-        )
+            seen_names.add(tool_name)
 
     return wrapped_tools
 

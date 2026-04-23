@@ -105,7 +105,9 @@ def test_build_agents_function_tools_emits_tool_events_and_passes_runtime() -> N
             seen_runtime["kwargs"] = kwargs
             return {"summary": {"node_summary": "done"}, "isError": False}
 
-    tool = build_agents_function_tools([FakeTool()], store="artifact-store")[0]
+    tools = build_agents_function_tools([FakeTool()], store="artifact-store")
+    assert [tool.name for tool in tools] == ["storyline_fake_node", "fake_node"]
+    tool = tools[1]
     events = []
 
     ctx = type(
