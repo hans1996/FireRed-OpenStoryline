@@ -71,6 +71,7 @@ from open_storyline.storage.agent_memory import ArtifactStore
 from open_storyline.mcp.hooks.node_interceptors import ToolInterceptor
 from open_storyline.mcp.hooks.chat_middleware import set_mcp_log_sink, reset_mcp_log_sink
 from open_storyline.mcp.local_server_manager import LocalMCPServerManager
+from open_storyline.runtime_health import build_runtime_health_snapshot
 
 WEB_DIR = os.path.join(ROOT_DIR, "web")
 STATIC_DIR = os.path.join(WEB_DIR, "static")
@@ -2710,6 +2711,23 @@ async def get_local_mcp_status():
     if manager is None:
         return JSONResponse({"status": "missing"})
     return JSONResponse(manager.snapshot())
+
+
+@api.get("/meta/runtime_health")
+async def get_runtime_health(request: Request):
+    cfg = getattr(app.state, "cfg", None)
+    if cfg is None:
+        raise HTTPException(status_code=503, detail="runtime config unavailable")
+    port = int(request.url.port or 7861)
+    snapshot = await build_runtime_health_snapshot(
+        cfg=cfg,
+        firered_port=port,
+        local_mcp_manager=getattr(app.state, "local_mcp_manager", None),
+        codex_account_reader=getattr(app.state, "codex_auth_client", None).account_read
+        if getattr(app.state, "codex_auth_client", None) is not None
+        else None,
+    )
+    return JSONResponse(snapshot)
 
 async def _enforce_upload_media_count_limit(request: Request, cost: float) -> Optional[JSONResponse]:
     ip = _client_ip_from_http_scope(request.scope, RATE_LIMIT_TRUST_PROXY_HEADERS)

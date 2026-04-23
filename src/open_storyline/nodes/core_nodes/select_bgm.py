@@ -1,5 +1,4 @@
 import asyncio
-import os
 import time
 from typing import Any, Dict
 from pathlib import Path
@@ -13,6 +12,7 @@ from open_storyline.nodes.core_nodes.base_node import BaseNode, NodeMeta
 from open_storyline.nodes.node_state import NodeState
 from open_storyline.nodes.node_schema import SelectBGMInput
 from open_storyline.utils.element_filter import ElementFilter
+from open_storyline.utils.localai_auth import resolve_localai_shared_token
 from open_storyline.utils.recall import StorylineRecall
 from src.open_storyline.utils.prompts import get_prompt
 from open_storyline.utils.parse_json import parse_json_dict
@@ -160,12 +160,12 @@ class SelectBGMNode(BaseNode):
             if value not in (None, ""):
                 cfg[key] = value
 
+        mode = str(cfg.get("mode") or "").strip().lower()
         if not str(cfg.get("base_url") or "").strip():
             cfg["base_url"] = "http://127.0.0.1:18080" if mode == "gateway" else "http://127.0.0.1:8080"
         if "instrumental" not in cfg:
             cfg["instrumental"] = True
 
-        mode = str(cfg.get("mode") or "").strip().lower()
         if mode != "gateway" and not str(cfg.get("model_id") or "").strip():
             raise ValueError("LocalAI BGM provider missing model_id. Please configure select_bgm.providers.localai.model_id.")
 
@@ -326,7 +326,7 @@ class SelectBGMNode(BaseNode):
         headers = {
             "Content-Type": "application/json",
         }
-        api_key = str(provider_cfg.get("api_key") or "").strip()
+        api_key = resolve_localai_shared_token(provider_cfg.get("api_key"))
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
@@ -378,12 +378,7 @@ class SelectBGMNode(BaseNode):
         provider_cfg: Dict[str, Any],
     ) -> Dict[str, Any]:
         base_url = str(provider_cfg.get("base_url") or "http://127.0.0.1:18080").rstrip("/")
-        api_key = (
-            str(provider_cfg.get("api_key") or "").strip()
-            or os.getenv("LOCAL_AI_PLATFORM_SHARED_TOKEN", "").strip()
-            or os.getenv("PLATFORM_SHARED_TOKEN", "").strip()
-            or os.getenv("LOCALAI_API_KEY", "").strip()
-        )
+        api_key = resolve_localai_shared_token(provider_cfg.get("api_key"))
         if not api_key:
             raise ValueError("local-ai-platform music missing api_key / shared token")
 

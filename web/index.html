@@ -100,6 +100,24 @@
           使用官方 Codex auth 後，可把 ChatGPT 方案內的模型直接當成 LLM/VLM 使用。
         </div>
       </div>
+      <div id="runtimeStatusBox" class="sidebar-panel" aria-label="运行状态"
+           data-i18n-aria-label="sidebar.runtime_box_aria">
+        <div class="sidebar-panel-title">
+          <span class="sidebar-panel-title-text" data-i18n="sidebar.runtime_title">运行状态</span>
+        </div>
+        <div class="sidebar-subtitle" data-i18n="sidebar.runtime_profile_label">当前开发 profile</div>
+        <div id="runtimeProfileBadge" class="runtime-profile-badge">Codex + LocalAI</div>
+        <div id="runtimeProfileDetails" class="runtime-profile-details"></div>
+        <div class="sidebar-fields">
+          <button id="runtimeHealthRefreshBtn" type="button" class="sidebar-action">
+            <span class="sidebar-action-text" data-i18n="sidebar.runtime_refresh">刷新运行状态</span>
+          </button>
+        </div>
+        <div id="runtimeHealthList" class="runtime-health-list">
+          <div class="sidebar-hint" data-i18n="sidebar.runtime_loading">正在读取运行状态…</div>
+        </div>
+        <div id="runtimeHealthWarnings" class="runtime-warning-list hidden"></div>
+      </div>
       <!-- LLM 配置：卡片包住 下拉框 + 自定义字段 -->
       <div id="llmBox" class="sidebar-panel" aria-label="LLM 配置">
         <div class="sidebar-panel-title">
@@ -543,7 +561,7 @@
       };
     </script>
 
-    <script type="module" src="/static/app.js?v=20260423-codex-auth-2"></script>
+    <script type="module" src="/static/app.js?v=20260423-runtime-health-1"></script>
   </div>
 
   <!-- 右侧开发者侧边栏（仅 developer_mode=true 时由 JS 显示） -->

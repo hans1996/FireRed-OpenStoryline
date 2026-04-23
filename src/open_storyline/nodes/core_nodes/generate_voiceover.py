@@ -15,6 +15,7 @@ from open_storyline.nodes.core_nodes.base_node import BaseNode, NodeMeta
 from open_storyline.nodes.node_schema import GenerateVoiceoverInput
 from open_storyline.nodes.node_state import NodeState
 from open_storyline.utils.logging import get_logger
+from open_storyline.utils.localai_auth import resolve_localai_shared_token
 from open_storyline.utils.parse_json import parse_json_dict
 from open_storyline.utils.prompts import get_prompt
 from open_storyline.utils.register import NODE_REGISTRY
@@ -823,12 +824,8 @@ class GenerateVoiceoverNode(BaseNode):
         for key in ("api_key", "token", "access_token"):
             value = secrets.get(key)
             if isinstance(value, str) and value.strip():
-                return value.strip()
-        for env_key in ("LOCAL_AI_PLATFORM_SHARED_TOKEN", "PLATFORM_SHARED_TOKEN", "LOCALAI_API_KEY"):
-            value = os.getenv(env_key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-        return ""
+                return resolve_localai_shared_token(value)
+        return resolve_localai_shared_token()
 
     @staticmethod
     def _poll_localai_job(base_url: str, api_key: str, job_id: str, *, timeout_seconds: float) -> Dict[str, Any]:

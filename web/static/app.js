@@ -81,6 +81,36 @@ const __OS_I18N = {
     "sidebar.codex_rate_primary": "主額度：{used}% 已用",
     "sidebar.codex_rate_secondary": "次額度：{used}% 已用",
     "sidebar.codex_auth_required": "請先完成 Codex / ChatGPT 登入，再使用 Codex provider。",
+    "sidebar.runtime_box_aria": "运行状态配置",
+    "sidebar.runtime_title": "运行状态",
+    "sidebar.runtime_profile_label": "当前开发 profile",
+    "sidebar.runtime_profile_codex_localai": "Codex + LocalAI",
+    "sidebar.runtime_profile_custom": "自定义组合",
+    "sidebar.runtime_refresh": "刷新运行状态",
+    "sidebar.runtime_loading": "正在读取运行状态…",
+    "sidebar.runtime_item_llm": "LLM",
+    "sidebar.runtime_item_vlm": "VLM",
+    "sidebar.runtime_item_tts": "TTS",
+    "sidebar.runtime_item_bgm": "BGM",
+    "sidebar.runtime_item_codex_model": "Codex 模型",
+    "sidebar.runtime_item_reasoning": "Reasoning",
+    "sidebar.runtime_service_firered": "FireRed Web",
+    "sidebar.runtime_service_local_mcp": "本地 MCP",
+    "sidebar.runtime_service_localai_gateway": "LocalAI 网关",
+    "sidebar.runtime_service_localai_tts": "LocalAI TTS",
+    "sidebar.runtime_service_localai_music": "LocalAI 背景音乐",
+    "sidebar.runtime_service_comfyui": "ComfyUI Bridge",
+    "sidebar.runtime_service_codex": "Codex Auth",
+    "sidebar.runtime_status_ready": "正常",
+    "sidebar.runtime_status_signed_in": "已登入",
+    "sidebar.runtime_status_signed_out": "未登入",
+    "sidebar.runtime_status_configured": "已配置",
+    "sidebar.runtime_status_missing": "未配置",
+    "sidebar.runtime_status_unreachable": "不可达",
+    "sidebar.runtime_status_auth_error": "鉴权失败",
+    "sidebar.runtime_status_missing_endpoint": "能力缺失",
+    "sidebar.runtime_status_unavailable": "不可用",
+    "sidebar.runtime_status_unknown": "未知",
     "sidebar.model_label": "对话模型",
     "sidebar.model_select_aria": "选择对话模型",
     "sidebar.custom_model_box_aria": "自定义模型配置",
@@ -236,6 +266,36 @@ const __OS_I18N = {
     "sidebar.codex_rate_primary": "Primary limit: {used}% used",
     "sidebar.codex_rate_secondary": "Secondary limit: {used}% used",
     "sidebar.codex_auth_required": "Please complete Codex / ChatGPT sign-in before using the Codex provider.",
+    "sidebar.runtime_box_aria": "Runtime status settings",
+    "sidebar.runtime_title": "Runtime status",
+    "sidebar.runtime_profile_label": "Current development profile",
+    "sidebar.runtime_profile_codex_localai": "Codex + LocalAI",
+    "sidebar.runtime_profile_custom": "Custom mix",
+    "sidebar.runtime_refresh": "Refresh runtime status",
+    "sidebar.runtime_loading": "Loading runtime status…",
+    "sidebar.runtime_item_llm": "LLM",
+    "sidebar.runtime_item_vlm": "VLM",
+    "sidebar.runtime_item_tts": "TTS",
+    "sidebar.runtime_item_bgm": "BGM",
+    "sidebar.runtime_item_codex_model": "Codex model",
+    "sidebar.runtime_item_reasoning": "Reasoning",
+    "sidebar.runtime_service_firered": "FireRed Web",
+    "sidebar.runtime_service_local_mcp": "Local MCP",
+    "sidebar.runtime_service_localai_gateway": "LocalAI gateway",
+    "sidebar.runtime_service_localai_tts": "LocalAI TTS",
+    "sidebar.runtime_service_localai_music": "LocalAI music",
+    "sidebar.runtime_service_comfyui": "ComfyUI bridge",
+    "sidebar.runtime_service_codex": "Codex auth",
+    "sidebar.runtime_status_ready": "Ready",
+    "sidebar.runtime_status_signed_in": "Signed in",
+    "sidebar.runtime_status_signed_out": "Signed out",
+    "sidebar.runtime_status_configured": "Configured",
+    "sidebar.runtime_status_missing": "Missing",
+    "sidebar.runtime_status_unreachable": "Unreachable",
+    "sidebar.runtime_status_auth_error": "Auth error",
+    "sidebar.runtime_status_missing_endpoint": "Capability missing",
+    "sidebar.runtime_status_unavailable": "Unavailable",
+    "sidebar.runtime_status_unknown": "Unknown",
     "sidebar.model_label": "Chat model",
     "sidebar.model_select_aria": "Select chat model",
     "sidebar.custom_model_box_aria": "Custom model settings",
@@ -623,6 +683,12 @@ class ApiClient {
 
   async getCodexModels() {
     const r = await fetch("/api/codex/models", { method: "GET" });
+    if (!r.ok) throw new Error(await this._readFetchError(r));
+    return await r.json();
+  }
+
+  async getRuntimeHealth() {
+    const r = await fetch("/api/meta/runtime_health", { method: "GET" });
     if (!r.ok) throw new Error(await this._readFetchError(r));
     return await r.json();
   }
@@ -2527,6 +2593,13 @@ class App {
     this.codexRateLimits = null;
     this.codexModels = [];
     this.codexLoginState = null;
+    this.runtimeStatusBox = $("#runtimeStatusBox");
+    this.runtimeProfileBadge = $("#runtimeProfileBadge");
+    this.runtimeProfileDetails = $("#runtimeProfileDetails");
+    this.runtimeHealthList = $("#runtimeHealthList");
+    this.runtimeHealthWarnings = $("#runtimeHealthWarnings");
+    this.runtimeHealthRefreshBtn = $("#runtimeHealthRefreshBtn");
+    this.runtimeHealth = null;
 
     // Provider config UI
     this.bgmBox = $("#bgmBox");
@@ -2707,10 +2780,11 @@ class App {
     this.bindUI();
     this._setLang(this.lang, { persist: false, syncServer: false });
     await this.loadModelProviderUiSchema();
-    await this.refreshCodexState({ autoSelect: false });
+    await this.refreshCodexState({ autoSelect: true });
     await this.loadProviderUiSchema("bgm");
     await this.loadProviderUiSchema("tts");
     await this.loadProviderUiSchema("ai_transition");
+    await this.refreshRuntimeHealth();
 
     // 先加载本地会话列表
     this.sessionHistory = this._loadSessionHistory();
@@ -3517,6 +3591,188 @@ class App {
     }
   }
 
+  _runtimeProviderLabel(kind, providerName) {
+    const provider = String(providerName || "").trim();
+    if (!provider) return "—";
+    if (kind === "llm" || kind === "vlm") {
+      const preset = this._findModelProviderPreset(kind, provider);
+      return String(preset?.label || provider);
+    }
+    const schema = this.providerUiSchemas?.[kind];
+    const item = Array.isArray(schema?.providers)
+      ? schema.providers.find((entry) => String(entry?.provider || "").trim() === provider)
+      : null;
+    return String(item?.label || provider);
+  }
+
+  _runtimeEffectivePanelProvider(kind) {
+    const panel = this._getProviderPanel(kind);
+    const selected = String(panel?.select?.value || "").trim();
+    if (selected) return selected;
+    return String(this.providerUiSchemas?.[kind]?.default_provider || "").trim();
+  }
+
+  _runtimeProfileName() {
+    const llmProvider = this._providerNameFromModelSelection(this.llmModel);
+    const vlmProvider = this._providerNameFromModelSelection(this.vlmModel);
+    const ttsProvider = this._runtimeEffectivePanelProvider("tts");
+    const bgmProvider = this._runtimeEffectivePanelProvider("bgm");
+    if (llmProvider === "codex" && vlmProvider === "codex" && ttsProvider === "localai" && bgmProvider === "localai") {
+      return __t("sidebar.runtime_profile_codex_localai");
+    }
+    return __t("sidebar.runtime_profile_custom");
+  }
+
+  _runtimeProfileEntries() {
+    const entries = [
+      {
+        label: __t("sidebar.runtime_item_llm"),
+        value: this._labelForModelSelection("llm", this.llmModel) || "—",
+      },
+      {
+        label: __t("sidebar.runtime_item_vlm"),
+        value: this._labelForModelSelection("vlm", this.vlmModel) || "—",
+      },
+      {
+        label: __t("sidebar.runtime_item_tts"),
+        value: this._runtimeProviderLabel("tts", this._runtimeEffectivePanelProvider("tts")),
+      },
+      {
+        label: __t("sidebar.runtime_item_bgm"),
+        value: this._runtimeProviderLabel("bgm", this._runtimeEffectivePanelProvider("bgm")),
+      },
+    ];
+
+    const usesCodex = this._providerNameFromModelSelection(this.llmModel) === "codex"
+      || this._providerNameFromModelSelection(this.vlmModel) === "codex";
+    if (usesCodex) {
+      entries.push({
+        label: __t("sidebar.runtime_item_codex_model"),
+        value: this._selectedCodexModel() || "—",
+      });
+      entries.push({
+        label: __t("sidebar.runtime_item_reasoning"),
+        value: this._codexReasoningLabel(this._selectedCodexReasoning()) || "—",
+      });
+    }
+    return entries;
+  }
+
+  _runtimeStatusText(item) {
+    if (item && typeof item.signed_in === "boolean") {
+      return __t(item.signed_in ? "sidebar.runtime_status_signed_in" : "sidebar.runtime_status_signed_out");
+    }
+    if (item?.ready) return __t("sidebar.runtime_status_ready");
+    const status = String(item?.status || "").trim().toLowerCase();
+    const key = {
+      signed_in: "sidebar.runtime_status_signed_in",
+      signed_out: "sidebar.runtime_status_signed_out",
+      running: "sidebar.runtime_status_ready",
+      ready: "sidebar.runtime_status_ready",
+      configured: "sidebar.runtime_status_configured",
+      missing: "sidebar.runtime_status_missing",
+      unreachable: "sidebar.runtime_status_unreachable",
+      auth_error: "sidebar.runtime_status_auth_error",
+      missing_endpoint: "sidebar.runtime_status_missing_endpoint",
+      unavailable: "sidebar.runtime_status_unavailable",
+    }[status] || "sidebar.runtime_status_unknown";
+    return __t(key);
+  }
+
+  _runtimeHealthEntries() {
+    const health = this.runtimeHealth || {};
+    return [
+      { label: __t("sidebar.runtime_service_firered"), item: health.firered_web },
+      { label: __t("sidebar.runtime_service_local_mcp"), item: health.local_mcp },
+      { label: __t("sidebar.runtime_service_localai_gateway"), item: health.localai_gateway },
+      { label: __t("sidebar.runtime_service_localai_tts"), item: health.localai_tts_ready },
+      { label: __t("sidebar.runtime_service_localai_music"), item: health.localai_music_ready },
+      { label: __t("sidebar.runtime_service_comfyui"), item: health.comfyui_bridge },
+      { label: __t("sidebar.runtime_service_codex"), item: health.codex_auth_state },
+    ];
+  }
+
+  _renderRuntimeStatusPanel(errorText = "") {
+    if (this.runtimeProfileBadge) {
+      this.runtimeProfileBadge.textContent = this._runtimeProfileName();
+    }
+
+    if (this.runtimeProfileDetails) {
+      this.runtimeProfileDetails.innerHTML = "";
+      this._runtimeProfileEntries().forEach((entry) => {
+        const row = document.createElement("div");
+        row.className = "runtime-profile-item";
+        row.innerHTML = `
+          <span class="runtime-profile-label"></span>
+          <span class="runtime-profile-value"></span>
+        `;
+        row.querySelector(".runtime-profile-label").textContent = String(entry.label || "");
+        row.querySelector(".runtime-profile-value").textContent = String(entry.value || "—");
+        this.runtimeProfileDetails.appendChild(row);
+      });
+    }
+
+    if (this.runtimeHealthList) {
+      this.runtimeHealthList.innerHTML = "";
+      if (!this.runtimeHealth && !errorText) {
+        const hint = document.createElement("div");
+        hint.className = "sidebar-hint";
+        hint.textContent = __t("sidebar.runtime_loading");
+        this.runtimeHealthList.appendChild(hint);
+      } else {
+        this._runtimeHealthEntries().forEach(({ label, item }) => {
+          const row = document.createElement("div");
+          row.className = "runtime-health-item";
+          const statusText = this._runtimeStatusText(item);
+          row.innerHTML = `
+            <div class="runtime-health-head">
+              <span class="runtime-health-label"></span>
+              <span class="runtime-health-status"></span>
+            </div>
+            <div class="runtime-health-detail hidden"></div>
+          `;
+          row.querySelector(".runtime-health-label").textContent = label;
+          const statusEl = row.querySelector(".runtime-health-status");
+          statusEl.textContent = statusText;
+          statusEl.classList.toggle("is-ready", !!item?.ready || !!item?.signed_in);
+          statusEl.classList.toggle("is-problem", !(!!item?.ready || !!item?.signed_in));
+          const detail = String(item?.detail || "").trim();
+          const detailEl = row.querySelector(".runtime-health-detail");
+          if (detail) {
+            detailEl.textContent = detail;
+            detailEl.classList.remove("hidden");
+          }
+          this.runtimeHealthList.appendChild(row);
+        });
+      }
+    }
+
+    if (this.runtimeHealthWarnings) {
+      const warnings = Array.isArray(this.runtimeHealth?.warnings) ? this.runtimeHealth.warnings.slice() : [];
+      if (errorText) warnings.unshift(errorText);
+      this.runtimeHealthWarnings.innerHTML = "";
+      this.runtimeHealthWarnings.classList.toggle("hidden", warnings.length === 0);
+      warnings.forEach((text) => {
+        const box = document.createElement("div");
+        box.className = "sidebar-warning";
+        box.innerHTML = `<div class="sidebar-warning-body"></div>`;
+        box.querySelector(".sidebar-warning-body").textContent = String(text || "");
+        this.runtimeHealthWarnings.appendChild(box);
+      });
+    }
+  }
+
+  async refreshRuntimeHealth() {
+    let errorText = "";
+    try {
+      this.runtimeHealth = await this.api.getRuntimeHealth();
+    } catch (err) {
+      console.warn("[runtime_health] failed to load:", err);
+      errorText = String(err?.message || err || "");
+    }
+    this._renderRuntimeStatusPanel(errorText);
+  }
+
   async refreshCodexState({ autoSelect = false } = {}) {
     let errorText = "";
     let account = this.codexAccount;
@@ -3568,7 +3824,10 @@ class App {
     for (let i = 0; i < 20; i++) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       await this.refreshCodexState({ autoSelect: true });
-      if (this._codexSignedIn()) return;
+      if (this._codexSignedIn()) {
+        await this.refreshRuntimeHealth();
+        return;
+      }
     }
   }
 
@@ -3902,6 +4161,7 @@ class App {
     __rerenderProviderFieldPlaceholders(document);
     this._renderCodexControls();
     this._renderCodexAuthState();
+    this._renderRuntimeStatusPanel();
   }
 
   _pushLangToServer() {
@@ -4011,6 +4271,7 @@ class App {
 
     const showCustomPexels = (pMode === "custom");
     if (this.pexelsCustomKeyBox) this.pexelsCustomKeyBox.classList.toggle("hidden", !showCustomPexels);
+    this._renderRuntimeStatusPanel();
   }
 
 
@@ -4383,6 +4644,7 @@ class App {
     if (this.codexRefreshBtn) {
       this.codexRefreshBtn.addEventListener("click", async () => {
         await this.refreshCodexState({ autoSelect: true });
+        await this.refreshRuntimeHealth();
       });
     }
 
@@ -4395,6 +4657,13 @@ class App {
         }
         this.codexLoginState = null;
         await this.refreshCodexState({ autoSelect: false });
+        await this.refreshRuntimeHealth();
+      });
+    }
+
+    if (this.runtimeHealthRefreshBtn) {
+      this.runtimeHealthRefreshBtn.addEventListener("click", async () => {
+        await this.refreshRuntimeHealth();
       });
     }
 
