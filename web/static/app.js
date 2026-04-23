@@ -3687,6 +3687,7 @@ class App {
     if (!panel || !panel.select || !panel.host) return;
 
     const providers = (schema && Array.isArray(schema.providers)) ? schema.providers : [];
+    const defaultProvider = String(schema?.default_provider || "").trim();
     const before = String(panel.select.value || "").trim();
 
     panel.select.innerHTML = "";
@@ -3758,6 +3759,8 @@ class App {
 
     if (before) {
       panel.select.value = before;
+    } else if (defaultProvider && providers.some((item) => String(item?.provider || "").trim() === defaultProvider)) {
+      panel.select.value = defaultProvider;
     } else if (!panel.showDefaultOption && providers.length > 0) {
       const firstProvider = String(providers[0]?.provider || "").trim();
       panel.select.value = firstProvider;

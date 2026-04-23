@@ -42,7 +42,7 @@ class GenerateVoiceoverNode(BaseNode):
         "localai": "_tts_localai_sync",
     }
 
-    _DEFAULT_PROVIDER = "minimax"
+    _DEFAULT_PROVIDER = "localai"
     _NODE_MODE_VALUES = {"auto", "skip", "default"}
 
     MILLISECONDS_PER_SECOND = 1000.0
@@ -229,7 +229,7 @@ class GenerateVoiceoverNode(BaseNode):
         if provider_name == "302":
             return "https://api.302.ai"
         if provider_name == "localai":
-            return "http://127.0.0.1:8080"
+            return "http://127.0.0.1:18080"
         return ""
 
     def _is_optional_provider_field(self, provider_name: str, key: str) -> bool:
@@ -675,7 +675,7 @@ class GenerateVoiceoverNode(BaseNode):
         tts_params: Dict[str, Any],
         provider_cfg: Dict[str, Any],
     ) -> None:
-        base_url = (secrets.get("base_url") or "http://127.0.0.1:8080").rstrip("/")
+        base_url = (secrets.get("base_url") or self._default_base_url("localai")).rstrip("/")
         mode = str(
             tts_params.get("mode")
             or secrets.get("mode")

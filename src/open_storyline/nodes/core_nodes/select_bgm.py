@@ -78,6 +78,7 @@ class SelectBGMNode(BaseNode):
             "ja": "ja",
         },
     }
+    _DEFAULT_PROVIDER = "localai"
     _NODE_MODE_VALUES = {"auto", "skip", "default"}
 
     def __init__(self, server_cfg):
@@ -97,6 +98,8 @@ class SelectBGMNode(BaseNode):
     async def process(self, node_state: NodeState, inputs: Dict[str, Any]) -> Any:
         cfg = self.server_cfg
         provider_name = str(inputs.get("provider") or "").strip().lower()
+        if not provider_name:
+            provider_name = self._DEFAULT_PROVIDER
         user_request = inputs.get("user_request", "")
         filter_include = self._normalize_filter_map(inputs.get("filter_include", {}))
         filter_exclude = self._normalize_filter_map(inputs.get("filter_exclude", {}))
@@ -158,7 +161,7 @@ class SelectBGMNode(BaseNode):
                 cfg[key] = value
 
         if not str(cfg.get("base_url") or "").strip():
-            cfg["base_url"] = "http://127.0.0.1:8080"
+            cfg["base_url"] = "http://127.0.0.1:18080" if mode == "gateway" else "http://127.0.0.1:8080"
         if "instrumental" not in cfg:
             cfg["instrumental"] = True
 
@@ -646,7 +649,7 @@ class SelectBGMNode(BaseNode):
 
         # 3) Local normalization: prevent louder sections from dominating beat selection
         if strength.size >= 3 and local_norm_win >= 3:
-            w = int(local_norm_win)
+            w = min(int(local_norm_win), int(strength.size))
             kernel = np.ones(w, dtype=np.float64) / w
             local_mean = np.convolve(strength, kernel, mode="same")
             strength_norm = strength / (local_mean + 1e-8)

@@ -1,8 +1,14 @@
+import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 
-from agent_fastapi import _parse_service_config
+import numpy as np
+
+from agent_fastapi import _build_provider_ui_schema_from_config, _parse_service_config
 from open_storyline.nodes.core_nodes.generate_voiceover import GenerateVoiceoverNode
 from open_storyline.nodes.core_nodes.select_bgm import SelectBGMNode
+from open_storyline.nodes.node_state import NodeState
+from open_storyline.nodes.node_summary import NodeSummary
 
 
 class _FakeResponse:
@@ -33,6 +39,17 @@ class _FakeResponse:
         if self._json_data is None:
             raise RuntimeError("no json payload")
         return self._json_data
+
+
+def _node_state(*, session_id: str = "test-session", artifact_id: str = "test-artifact") -> NodeState:
+    return NodeState(
+        session_id=session_id,
+        artifact_id=artifact_id,
+        lang="zh",
+        node_summary=NodeSummary(auto_console=False),
+        llm=SimpleNamespace(),
+        mcp_ctx=SimpleNamespace(),
+    )
 
 
 def test_parse_service_config_extracts_bgm_provider_block() -> None:
@@ -109,6 +126,35 @@ def test_parse_service_config_accepts_flat_provider_fields() -> None:
     }
 
 
+def test_build_provider_ui_schema_uses_localai_as_default_provider(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.toml"
+    config_path.write_text(
+        """
+[generate_voiceover.providers.localai]
+label = "Local-ai-platform"
+mode = "gateway"
+base_url = "http://127.0.0.1:18080"
+
+[generate_voiceover.providers.minimax]
+base_url = ""
+api_key = ""
+
+[select_bgm.providers.localai]
+label = "Local-ai-platform"
+mode = "gateway"
+base_url = "http://127.0.0.1:18080"
+duration_seconds = 12
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    tts_schema = _build_provider_ui_schema_from_config(str(config_path), "generate_voiceover")
+    bgm_schema = _build_provider_ui_schema_from_config(str(config_path), "select_bgm")
+
+    assert tts_schema["default_provider"] == "localai"
+    assert bgm_schema["default_provider"] == "localai"
+
+
 def test_select_bgm_normalizes_list_filters_for_localai_prompt() -> None:
     normalized = SelectBGMNode._normalize_filter_map(["Happy", "Travel", "Happy"])
 
@@ -120,6 +166,121 @@ def test_select_bgm_normalizes_list_filters_for_localai_prompt() -> None:
     assert "instrumental background music" in prompt
     assert "mood: Happy" in prompt
     assert "scene: Travel" in prompt
+
+
+def test_generate_voiceover_defaults_to_localai_provider_when_missing(tmp_path: Path, monkeypatch) -> None:
+    node = object.__new__(GenerateVoiceoverNode)
+    node.server_cfg = SimpleNamespace(
+        generate_voiceover=SimpleNamespace(
+            providers={
+                "localai": {
+                    "mode": "gateway",
+                    "base_url": "http://127.0.0.1:18080",
+                    "api_key": "",
+                    "voice_provider": "voxcpm",
+                    "voice_id": "default",
+                    "format": "wav",
+                },
+                "minimax": {
+                    "base_url": "https://example.invalid",
+                    "api_key": "unused",
+                },
+            }
+        )
+    )
+    node.server_cache_dir = tmp_path
+    calls = []
+
+    def _fake_localai(self, *, text, wav_path, secrets, tts_params, provider_cfg):
+        calls.append({"text": text, "wav_path": str(wav_path), "secrets": secrets})
+        wav_path.write_bytes(b"RIFFtest-wave")
+
+    def _unexpected_minimax(self, **kwargs):
+        raise AssertionError("minimax handler should not be used when provider is omitted")
+
+    async def _fake_infer(self, **kwargs):
+        return {}
+
+    monkeypatch.setattr(GenerateVoiceoverNode, "_tts_localai_sync", _fake_localai)
+    monkeypatch.setattr(GenerateVoiceoverNode, "_tts_minimax_sync", _unexpected_minimax)
+    monkeypatch.setattr(GenerateVoiceoverNode, "_infer_tts_params_with_llm", _fake_infer)
+    monkeypatch.setattr(GenerateVoiceoverNode, "_load_provider_param_schema", lambda self, provider_name: {})
+    monkeypatch.setattr(GenerateVoiceoverNode, "_wav_duration_ms", staticmethod(lambda _path: 1234))
+
+    result = asyncio.run(
+        node.process(
+            _node_state(session_id="sess-tts", artifact_id="art-tts"),
+            {
+                "generate_script": {
+                    "group_scripts": [
+                        {"group_id": "group_0001", "raw_text": "你好，海边的夏天。"}
+                    ]
+                }
+            },
+        )
+    )
+
+    assert len(calls) == 1
+    assert result["voiceover"][0]["duration"] == 1234
+    assert result["voiceover"][0]["group_id"] == "group_0001"
+
+
+def test_select_bgm_defaults_to_localai_provider_when_missing(tmp_path: Path, monkeypatch) -> None:
+    node = object.__new__(SelectBGMNode)
+    node.server_cfg = SimpleNamespace(
+        select_bgm=SimpleNamespace(
+            sample_rate=22050,
+            hop_length=2048,
+            frame_length=2048,
+            providers={
+                "localai": {
+                    "mode": "gateway",
+                    "base_url": "http://127.0.0.1:18080",
+                    "api_key": "",
+                    "duration_seconds": 12,
+                    "instrumental": True,
+                }
+            },
+        )
+    )
+    node.server_cache_dir = tmp_path
+
+    def _fake_localai(prompt, output_dir, provider_cfg):
+        path = output_dir / "bgm_localai_test.mp3"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"ID3fake-mp3")
+        return {"bgm_id": "bgm_localai_test", "path": str(path)}
+
+    async def _unexpected_recommend(*args, **kwargs):
+        raise AssertionError("recommend() should not be used when provider is omitted")
+
+    monkeypatch.setattr(node, "_generate_localai_bgm_sync", _fake_localai)
+    monkeypatch.setattr(node, "recommend", _unexpected_recommend)
+    monkeypatch.setattr(
+        node,
+        "analyze_music_metrics",
+        lambda **kwargs: {
+            "bgm_id": kwargs["bgm_info"]["bgm_id"],
+            "path": kwargs["bgm_info"]["path"],
+            "duration": 12000,
+            "bpm": 120.0,
+            "beats": [],
+        },
+    )
+
+    result = asyncio.run(
+        node.process(
+            _node_state(session_id="sess-bgm", artifact_id="art-bgm"),
+            {
+                "user_request": "夏日海边 vlog 背景音乐",
+                "filter_include": {"mood": ["Happy"]},
+                "filter_exclude": {},
+            },
+        )
+    )
+
+    assert result["bgm"]["bgm_id"] == "bgm_localai_test"
+    assert result["bgm"]["path"].endswith("bgm_localai_test.mp3")
 
 
 def test_generate_voiceover_preserves_gateway_mode_when_node_mode_is_auto() -> None:
@@ -170,6 +331,35 @@ def test_select_bgm_preserves_gateway_mode_when_node_mode_is_auto() -> None:
 
     assert provider_cfg["mode"] == "gateway"
     assert provider_cfg["base_url"] == "http://127.0.0.1:18080"
+
+
+def test_generate_voiceover_localai_default_base_url_uses_gateway_port() -> None:
+    node = object.__new__(GenerateVoiceoverNode)
+
+    assert node._default_base_url("localai") == "http://127.0.0.1:18080"
+
+
+def test_select_bgm_accent_beat_normalization_handles_short_sequences(monkeypatch) -> None:
+    monkeypatch.setattr("open_storyline.nodes.core_nodes.select_bgm.librosa.effects.percussive", lambda y: y)
+    monkeypatch.setattr(
+        "open_storyline.nodes.core_nodes.select_bgm.librosa.onset.onset_strength",
+        lambda **kwargs: np.array([0.1, 0.3, 0.2, 0.8, 0.4, 0.9, 0.1], dtype=np.float64),
+    )
+    monkeypatch.setattr(
+        "open_storyline.nodes.core_nodes.select_bgm.librosa.frames_to_time",
+        lambda frames, sr, hop_length: np.asarray(frames, dtype=np.float64) / 10.0,
+    )
+
+    result = SelectBGMNode._compute_accent_beats(
+        y=np.zeros(32, dtype=np.float32),
+        sr=22050,
+        beat_frames=np.array([0, 1, 2, 3, 4, 5], dtype=int),
+        hop_length=512,
+        local_norm_win=8,
+    )
+
+    assert isinstance(result, list)
+    assert all(isinstance(x, int) for x in result)
 
 
 def test_generate_voiceover_localai_sync_writes_audio_file(tmp_path: Path, monkeypatch) -> None:

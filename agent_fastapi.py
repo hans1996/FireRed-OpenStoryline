@@ -2849,6 +2849,7 @@ def _build_provider_ui_schema_from_config(config_path: str, section_name: str) -
     """
     cfg = _read_config_toml(config_path)
     tts = cfg.get(section_name, {})
+    default_provider = _s(tts.get("default_provider")).lower()
 
     providers_out: list[dict] = []
 
@@ -2886,7 +2887,15 @@ def _build_provider_ui_schema_from_config(config_path: str, section_name: str) -
                 "fields": normalized_fields,
             })
 
-    return {"providers": providers_out}
+    if not default_provider:
+        provider_names = {str(item.get("provider") or "").strip().lower() for item in providers_out}
+        if section_name in {"generate_voiceover", "select_bgm"} and "localai" in provider_names:
+            default_provider = "localai"
+
+    return {
+        "default_provider": default_provider,
+        "providers": providers_out,
+    }
 
 @app.get("/")
 async def index():
