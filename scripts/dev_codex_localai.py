@@ -28,6 +28,14 @@ DEFAULT_MCP_PORT = 8001
 DEFAULT_BRIDGE_PORT = 8188
 DEFAULT_BRIDGE_TARGET_HOST = "172.17.0.1"
 DEFAULT_BRIDGE_TARGET_PORT = 8188
+RUNTIME_HEALTH_REQUIREMENTS = (
+    ("firered_web", "FireRed web"),
+    ("local_mcp", "Local MCP"),
+    ("localai_gateway", "LocalAI gateway"),
+    ("localai_tts_ready", "LocalAI TTS"),
+    ("localai_music_ready", "LocalAI music"),
+    ("comfyui_bridge", "ComfyUI bridge"),
+)
 
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
@@ -192,6 +200,66 @@ def cmd_start(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _fetch_runtime_health(web_port: int, mcp_port: int) -> dict[str, Any]:
+    base_url = f"http://127.0.0.1:{int(web_port)}"
+    if probe_tcp_listener("127.0.0.1", int(web_port), 0.25):
+        try:
+            async with httpx.AsyncClient(base_url=base_url, timeout=5.0) as client:
+                response = await client.get("/api/meta/runtime_health")
+                response.raise_for_status()
+                return response.json()
+        except Exception:
+            pass
+    return await _fallback_runtime_health(int(web_port), int(mcp_port))
+
+
+def _runtime_health_failures(snapshot: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    for key, label in RUNTIME_HEALTH_REQUIREMENTS:
+        section = snapshot.get(key) or {}
+        if not bool(section.get("ready")):
+            detail = str(section.get("detail") or section.get("status") or "").strip()
+            failures.append(f"{label}: {detail or 'not ready'}")
+    codex_auth = snapshot.get("codex_auth_state") or {}
+    if not bool(codex_auth.get("signed_in")):
+        detail = str(codex_auth.get("detail") or codex_auth.get("status") or "").strip()
+        failures.append(f"Codex auth: {detail or 'signed out'}")
+    return failures
+
+
+def _runtime_health_brief(snapshot: dict[str, Any]) -> dict[str, Any]:
+    brief: dict[str, Any] = {
+        "warnings": list(snapshot.get("warnings") or []),
+        "codex_auth_state": {
+            "signed_in": bool((snapshot.get("codex_auth_state") or {}).get("signed_in")),
+            "status": str((snapshot.get("codex_auth_state") or {}).get("status") or ""),
+        },
+    }
+    for key, _label in RUNTIME_HEALTH_REQUIREMENTS:
+        section = snapshot.get(key) or {}
+        brief[key] = {
+            "ready": bool(section.get("ready")),
+            "status": str(section.get("status") or ""),
+        }
+    return brief
+
+
+async def _wait_for_runtime_health(
+    *,
+    web_port: int,
+    mcp_port: int,
+    timeout: float,
+) -> dict[str, Any]:
+    deadline = time.time() + float(timeout)
+    latest: dict[str, Any] = {}
+    while time.time() < deadline:
+        latest = await _fetch_runtime_health(int(web_port), int(mcp_port))
+        if not _runtime_health_failures(latest):
+            return latest
+        await asyncio.sleep(1.0)
+    return latest
+
+
 async def _fallback_runtime_health(web_port: int, mcp_port: int) -> dict[str, Any]:
     cfg = load_settings(default_config_path())
     fake_manager = SimpleNamespace(
@@ -213,16 +281,7 @@ async def _fallback_runtime_health(web_port: int, mcp_port: int) -> dict[str, An
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    base_url = f"http://127.0.0.1:{int(args.web_port)}"
-    if probe_tcp_listener("127.0.0.1", int(args.web_port), 0.25):
-        try:
-            response = httpx.get(f"{base_url}/api/meta/runtime_health", timeout=5.0)
-            response.raise_for_status()
-            print(json.dumps(response.json(), ensure_ascii=False, indent=2))
-            return 0
-        except Exception:
-            pass
-    snapshot = asyncio.run(_fallback_runtime_health(int(args.web_port), int(args.mcp_port)))
+    snapshot = asyncio.run(_fetch_runtime_health(int(args.web_port), int(args.mcp_port)))
     print(json.dumps(snapshot, ensure_ascii=False, indent=2))
     return 0
 
@@ -251,6 +310,47 @@ def cmd_stop(_: argparse.Namespace) -> int:
         _stop_service("comfyui_bridge"),
     ]
     print(json.dumps(results, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_up(args: argparse.Namespace) -> int:
+    services = {
+        "local_mcp": _start_mcp(int(args.mcp_port)),
+        "firered_web": _start_web(int(args.web_port)),
+        "comfyui_bridge": _start_bridge(int(args.bridge_port), str(args.bridge_target_host), int(args.bridge_target_port)),
+    }
+    health = asyncio.run(
+        _wait_for_runtime_health(
+            web_port=int(args.web_port),
+            mcp_port=int(args.mcp_port),
+            timeout=float(args.timeout),
+        )
+    )
+    failures = _runtime_health_failures(health)
+    payload: dict[str, Any] = {
+        "ok": not failures,
+        "services": services,
+        "runtime_health": _runtime_health_brief(health),
+    }
+    if failures:
+        payload["failures"] = failures
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 1
+    if bool(getattr(args, "smoke", False)):
+        smoke_args = argparse.Namespace(
+            web_port=int(args.web_port),
+            model=str(args.model),
+            reasoning=str(args.reasoning),
+        )
+        try:
+            smoke_results = asyncio.run(_smoke_flow(smoke_args))
+        except SmokeFailure as exc:
+            payload["ok"] = False
+            payload["smoke"] = {"ok": False, "failed_step": exc.step, "error": exc.message}
+            print(json.dumps(payload, ensure_ascii=False, indent=2))
+            return 1
+        payload["smoke"] = {"ok": True, **smoke_results}
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -618,6 +718,36 @@ def cmd_smoke(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_verify(args: argparse.Namespace) -> int:
+    health = asyncio.run(_fetch_runtime_health(int(args.web_port), int(args.mcp_port)))
+    failures = _runtime_health_failures(health)
+    payload: dict[str, Any] = {
+        "ok": not failures,
+        "runtime_health": _runtime_health_brief(health),
+    }
+    if failures:
+        payload["failures"] = failures
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 1
+
+    smoke_args = argparse.Namespace(
+        web_port=int(args.web_port),
+        model=str(args.model),
+        reasoning=str(args.reasoning),
+    )
+    try:
+        smoke_results = asyncio.run(_smoke_flow(smoke_args))
+    except SmokeFailure as exc:
+        payload["ok"] = False
+        payload["smoke"] = {"ok": False, "failed_step": exc.step, "error": exc.message}
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 1
+
+    payload["smoke"] = {"ok": True, **smoke_results}
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Manage the FireRed Codex + LocalAI local development runtime.")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -629,6 +759,18 @@ def build_parser() -> argparse.ArgumentParser:
     start.add_argument("--bridge-target-host", default=DEFAULT_BRIDGE_TARGET_HOST)
     start.add_argument("--bridge-target-port", type=int, default=DEFAULT_BRIDGE_TARGET_PORT)
     start.set_defaults(func=cmd_start)
+
+    up = sub.add_parser("up", help="One-click start: boot services, wait for runtime health, and optionally run smoke.")
+    up.add_argument("--web-port", type=int, default=DEFAULT_WEB_PORT)
+    up.add_argument("--mcp-port", type=int, default=DEFAULT_MCP_PORT)
+    up.add_argument("--bridge-port", type=int, default=DEFAULT_BRIDGE_PORT)
+    up.add_argument("--bridge-target-host", default=DEFAULT_BRIDGE_TARGET_HOST)
+    up.add_argument("--bridge-target-port", type=int, default=DEFAULT_BRIDGE_TARGET_PORT)
+    up.add_argument("--timeout", type=float, default=60.0)
+    up.add_argument("--smoke", action="store_true")
+    up.add_argument("--model", default="gpt-5.4")
+    up.add_argument("--reasoning", default="medium")
+    up.set_defaults(func=cmd_up)
 
     status = sub.add_parser("status", help="Print the runtime health snapshot.")
     status.add_argument("--web-port", type=int, default=DEFAULT_WEB_PORT)
@@ -650,6 +792,13 @@ def build_parser() -> argparse.ArgumentParser:
     smoke.add_argument("--model", default="gpt-5.4")
     smoke.add_argument("--reasoning", default="medium")
     smoke.set_defaults(func=cmd_smoke)
+
+    verify = sub.add_parser("verify", help="One-click verification: check runtime health, then run the full live smoke flow.")
+    verify.add_argument("--web-port", type=int, default=DEFAULT_WEB_PORT)
+    verify.add_argument("--mcp-port", type=int, default=DEFAULT_MCP_PORT)
+    verify.add_argument("--model", default="gpt-5.4")
+    verify.add_argument("--reasoning", default="medium")
+    verify.set_defaults(func=cmd_verify)
 
     return parser
 
