@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import asyncio
 import contextlib
 import json
@@ -462,6 +463,91 @@ def _tool_record(snapshot: dict[str, Any], tool_name: str) -> dict[str, Any] | N
     return None
 
 
+def _coerce_summary_mapping(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            parsed = json.loads(text)
+        except Exception:
+            try:
+                parsed = ast.literal_eval(text)
+            except Exception:
+                return None
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
+def _is_truthy_error(value: Any) -> bool:
+    if value is True:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "error"}
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return False
+
+
+def _stringify_tool_error(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except Exception:
+        return str(value).strip()
+
+
+def _iter_summary_mappings(value: Any) -> list[dict[str, Any]]:
+    root = _coerce_summary_mapping(value)
+    if root is None:
+        return []
+    out: list[dict[str, Any]] = []
+    stack: list[dict[str, Any]] = [root]
+    while stack:
+        current = stack.pop(0)
+        out.append(current)
+        for key in ("summary", "node_summary", "result", "error", "data"):
+            nested = _coerce_summary_mapping(current.get(key))
+            if nested is not None:
+                stack.append(nested)
+    return out
+
+
+def _tool_error_message(record: dict[str, Any] | None) -> str | None:
+    if not record:
+        return None
+
+    summary_maps = _iter_summary_mappings(record.get("summary"))
+    summary_is_error = any(
+        _is_truthy_error(item.get("isError")) or _is_truthy_error(item.get("is_error"))
+        for item in summary_maps
+    )
+    state_is_error = str(record.get("state") or "").strip().lower() in {"error", "failed", "failure"}
+    if not summary_is_error and not state_is_error:
+        return None
+
+    for item in summary_maps:
+        for key in ("error_info", "errorInfo", "exception", "traceback", "message", "detail", "error"):
+            if key not in item:
+                continue
+            text = _stringify_tool_error(item.get(key))
+            if text:
+                return text
+
+    for key in ("message", "error", "detail"):
+        text = _stringify_tool_error(record.get(key))
+        if text:
+            return text
+
+    return "tool reported an error"
+
+
 def _latest_assistant_text(snapshot: dict[str, Any]) -> str:
     history = snapshot.get("history") or []
     for record in reversed(history):
@@ -499,7 +585,7 @@ async def _wait_for_tool_record(
     while time.time() < deadline:
         snapshot = (await client.get(f"/api/sessions/{session_id}")).json()
         record = _tool_record(snapshot, tool_name)
-        if record and record.get("state") == "complete":
+        if record and str(record.get("state") or "").strip().lower() in {"complete", "error", "failed", "failure"}:
             return snapshot, record
         if _assistant_requests_confirmation(snapshot):
             return snapshot, None
@@ -525,6 +611,9 @@ async def _ensure_tool_completed(
         timeout=timeout,
     )
     if record:
+        message = _tool_error_message(record)
+        if message:
+            raise SmokeFailure(tool_name, message)
         return snapshot, record
 
     if _assistant_requests_confirmation(snapshot):
@@ -542,6 +631,9 @@ async def _ensure_tool_completed(
             timeout=timeout,
         )
         if record:
+            message = _tool_error_message(record)
+            if message:
+                raise SmokeFailure(tool_name, message)
             return snapshot, record
 
     raise SmokeFailure(tool_name, "tool record missing or incomplete")

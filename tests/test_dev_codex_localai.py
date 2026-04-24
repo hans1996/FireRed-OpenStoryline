@@ -1,6 +1,9 @@
 import argparse
+import asyncio
 import importlib.util
 from pathlib import Path
+
+import pytest
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "dev_codex_localai.py"
@@ -104,6 +107,55 @@ def test_cmd_up_returns_failure_when_health_not_ready(monkeypatch, capsys) -> No
     assert rc == 1
     assert "\"ok\": false" in output
     assert "Local MCP: not reachable" in output
+
+
+class _JsonResponse:
+    def __init__(self, payload: dict) -> None:
+        self._payload = payload
+
+    def json(self) -> dict:
+        return self._payload
+
+
+class _FakeSessionClient:
+    def __init__(self, snapshot: dict) -> None:
+        self.snapshot = snapshot
+
+    async def get(self, path: str) -> _JsonResponse:
+        return _JsonResponse(self.snapshot)
+
+
+def test_ensure_tool_completed_reports_tool_error_info_instead_of_preview_symptom() -> None:
+    snapshot = {
+        "history": [
+            {
+                "role": "tool",
+                "name": "select_bgm",
+                "state": "complete",
+                "summary": {
+                    "isError": True,
+                    "error_info": "RuntimeError: local-ai-platform music asset download http 500: Internal Server Error",
+                },
+            }
+        ]
+    }
+
+    with pytest.raises(dev_runtime.SmokeFailure) as exc_info:
+        asyncio.run(
+            dev_runtime._ensure_tool_completed(
+                _FakeSessionClient(snapshot),
+                object(),
+                session_id="sess-123",
+                tool_name="select_bgm",
+                model="gpt-5.4",
+                reasoning="medium",
+                timeout=0.1,
+            )
+        )
+
+    assert exc_info.value.step == "select_bgm"
+    assert "local-ai-platform music asset download http 500" in exc_info.value.message
+    assert "preview url missing" not in exc_info.value.message
 
 
 def test_cmd_verify_returns_success_with_smoke(monkeypatch, capsys) -> None:
