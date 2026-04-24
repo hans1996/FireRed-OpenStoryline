@@ -49,6 +49,23 @@ def test_runtime_health_brief_only_exposes_brief_status() -> None:
     assert "detail" not in brief["localai_tts_ready"]
 
 
+def test_runtime_env_loads_local_dotenv_without_overriding_shell_env(monkeypatch, tmp_path) -> None:
+    env_file = tmp_path / ".env"
+    env_local_file = tmp_path / ".env.local"
+    env_file.write_text("OPENAI_API_KEY=from-env\nGEMINI_API_KEY='from-env-gemini'\n", encoding="utf-8")
+    env_local_file.write_text("OPENAI_API_KEY=from-env-local\nNVIDIA_API_KEY=from-env-local-nvidia\n", encoding="utf-8")
+    monkeypatch.setattr(dev_runtime, "ROOT", tmp_path)
+    monkeypatch.setenv("OPENAI_API_KEY", "from-shell")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("NVIDIA_API_KEY", raising=False)
+
+    env = dev_runtime._runtime_env()
+
+    assert env["OPENAI_API_KEY"] == "from-shell"
+    assert env["GEMINI_API_KEY"] == "from-env-gemini"
+    assert env["NVIDIA_API_KEY"] == "from-env-local-nvidia"
+
+
 def test_cmd_up_returns_failure_when_health_not_ready(monkeypatch, capsys) -> None:
     monkeypatch.setattr(dev_runtime, "_start_mcp", lambda port: {"name": "local_mcp", "port": port})
     monkeypatch.setattr(dev_runtime, "_start_web", lambda port: {"name": "firered_web", "port": port})

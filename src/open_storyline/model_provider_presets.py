@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from copy import deepcopy
 from typing import Any, Tuple
 
@@ -170,9 +171,13 @@ def resolve_model_provider_override(cfg: Any, kind: str, provider_name: str, mod
 
     provider_base_url = _norm_url(_cfg_value(provider_cfg, "base_url") or "")
     provider_api_key = str(_cfg_value(provider_cfg, "api_key") or "").strip()
+    env_api_key = ""
+    api_key_env = str(preset.get("api_key_env") or "").strip()
+    if api_key_env:
+        env_api_key = str(os.getenv(api_key_env) or "").strip()
 
     base_url = provider_base_url or _norm_url(preset.get("base_url", ""))
-    api_key = provider_api_key or str(preset.get("default_api_key", "") or "").strip()
+    api_key = provider_api_key or env_api_key or str(preset.get("default_api_key", "") or "").strip()
 
     if not base_url:
         return None, f"{kind} provider {provider} base_url is missing in config"

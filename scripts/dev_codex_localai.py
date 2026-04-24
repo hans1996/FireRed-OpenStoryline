@@ -89,8 +89,46 @@ def _remove_pid(name: str) -> None:
         pass
 
 
+def _strip_env_quotes(value: str) -> str:
+    text = str(value or "").strip()
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {"'", '"'}:
+        return text[1:-1]
+    return text
+
+
+def _read_dotenv_file(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return values
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        key, raw_value = line.split("=", 1)
+        key = key.strip()
+        if not key:
+            continue
+        values[key] = _strip_env_quotes(raw_value)
+    return values
+
+
+def _apply_local_dotenv(env: dict[str, str]) -> dict[str, str]:
+    merged = dict(env)
+    protected = {key for key, value in merged.items() if str(value or "").strip()}
+    for path in (ROOT / ".env", ROOT / ".env.local"):
+        for key, value in _read_dotenv_file(path).items():
+            if key not in protected:
+                merged[key] = value
+    return merged
+
+
 def _runtime_env() -> dict[str, str]:
-    env = inject_localai_runtime_env(dict(os.environ))
+    env = _apply_local_dotenv(dict(os.environ))
+    env = inject_localai_runtime_env(env)
     current = env.get("PYTHONPATH", "").strip()
     parts = [str(SRC), str(ROOT)]
     if current:

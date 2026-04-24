@@ -120,6 +120,21 @@ def test_resolve_model_provider_override_reads_key_from_config() -> None:
     }
 
 
+def test_resolve_model_provider_override_falls_back_to_provider_env(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-from-env")
+    cfg = SimpleNamespace(
+        llm=SimpleNamespace(timeout=30.0, temperature=0.1, max_retries=2),
+        vlm=SimpleNamespace(timeout=20.0, temperature=0.1, max_retries=2),
+        model_providers={},
+    )
+
+    override, err = resolve_model_provider_override(cfg, "llm", "openai", "gpt-5.4")
+
+    assert err is None
+    assert override["api_key"] == "sk-from-env"
+    assert override["base_url"] == "https://api.openai.com/v1"
+
+
 def test_resolve_model_provider_override_uses_ollama_default_key() -> None:
     cfg = SimpleNamespace(
         llm=SimpleNamespace(timeout=30.0, temperature=0.1, max_retries=2),
